@@ -1,46 +1,72 @@
 # alphaearth-to-sar-cross-model-prediction
 
-Offline workflow to spatially align AlphaEarth embeddings with Sentinel-1 SAR measurements, run sanity EDA, and execute Phase 2 regression modeling on the combined 2024 dataset.
+This repository contains an offline workflow for testing whether AlphaEarth embedding vectors can predict Sentinel-1 SAR measurements across multiple land-cover contexts.
 
-## What this does
+## Repository contents
 
-This project provides:
+- `offline_spatial_join_and_sanity_eda.py`: auto-detects AlphaEarth and Sentinel-1 CSVs, performs a nearest-neighbor spatial join, and saves sanity-check visualizations.
+- `phase2_regression_modeling.py`: builds a balanced modeling subset from the combined 2024 dataset and evaluates regression models for SAR targets.
+- `DataSources/`: bundled CSV and GeoTIFF inputs for the four study regions.
 
-1. Spatial join: nearest-neighbor match between AlphaEarth points and SAR points using a KD-tree, keeping matches within 10 meters.
-2. Sanity EDA: missing-value checks, SAR histograms, and PCA diagnostics on embedding columns.
-3. Phase 2 regression modeling: build a smaller balanced subset from the combined CSV and evaluate predictive capacity for `S1_VV`, `S1_VH`, and `S1_VV_div_VH`.
+## Workflow
 
-## Project structure
+### 1. Offline spatial join and sanity EDA
 
-- `offline_spatial_join_and_sanity_eda.py`: main pipeline script.
-- `phase2_regression_modeling.py`: balanced subset creation and regression analysis.
-- `DataSources/`: input CSV files.
-- `eda_outputs/`: generated EDA plots.
-- `phase2_outputs/`: generated Phase 2 metrics, plots, and feature-importance tables.
-- `alphaearth_sentinel1_merged.csv`: merged output table created by the script.
+`offline_spatial_join_and_sanity_eda.py`:
 
-## Input expectations
+- finds an AlphaEarth table by detecting embedding columns such as `A00` to `A63`
+- finds a Sentinel-1 table by detecting SAR-like `VV` and `VH` columns
+- detects coordinates from latitude and longitude columns or parses GeoJSON-style geometry fields such as `.geo`
+- matches AlphaEarth points to the nearest SAR point with a maximum distance of 10 meters
+- saves a merged table plus basic diagnostics for missingness, SAR distributions, and embedding PCA
 
-The script auto-detects:
+Generated outputs include:
 
-- AlphaEarth CSV using embedding-like columns such as `A00`, `A01`, ...
-- Sentinel-1 CSV using SAR-like columns containing `VV`/`VH`
-- Latitude/longitude columns (or parses GeoJSON-like geometry columns such as `.geo`)
+- `alphaearth_sentinel1_merged.csv`
+- `eda_outputs/`
 
-Place input CSVs under the project directory (for example in `DataSources/`).
+### 2. Phase 2 regression modeling
 
-For Phase 2, the primary combined input is `DataSources/alphaearth_s1_dw_samples_all_regions_2024.csv`, which contains 2,880 rows:
+`phase2_regression_modeling.py` uses `DataSources/alphaearth_s1_dw_samples_all_regions_2024.csv` as the modeling input. The dataset contains 2,880 rows:
 
-- 4 regions x 720 rows each
-- 9 Dynamic World labels x 320 rows each overall
-- 80 samples in every `region x dw_label` cell
+- 4 regions
+- 9 Dynamic World labels
+- 80 samples in each `region x dw_label` cell
 
-Additional project data currently includes:
+The script:
 
-- per-region sample CSVs for `sf_bay_urban`, `iowa_ag`, `amazon_forest`, and `california_coast`
+- samples a balanced subset with 20 rows per `region x dw_label` cell
+- trains ridge and histogram gradient boosting regressors
+- predicts `S1_VV`, `S1_VH`, and `S1_VV_div_VH`
+- reports held-out test metrics and region-level `S1_VV` performance
+- saves prediction plots and feature-importance tables
+
+Generated outputs include:
+
+- `DataSources/alphaearth_s1_dw_samples_balanced_subset_2024.csv`
+- `phase2_outputs/regression_metrics.csv`
+- `phase2_outputs/regional_metrics_S1_VV.csv`
+- `phase2_outputs/phase2_summary.md`
+
+## Study regions and data assets
+
+The repository currently includes per-region data for:
+
+- `amazon_forest`
+- `california_coast`
+- `iowa_ag`
+- `sf_bay_urban`
+
+Available source files include:
+
+- AlphaEarth plus SAR sample CSVs for each region
+- the combined all-regions modeling CSV
+- Sentinel-1 SAR tabular data
 - Sentinel-2 context GeoTIFFs for the same four regions
 
-## Setup
+## Environment setup
+
+Use Python 3.10+ and install the core dependencies:
 
 ```bash
 python3 -m venv .venv
@@ -48,30 +74,27 @@ source .venv/bin/activate
 pip install pandas numpy scipy scikit-learn matplotlib
 ```
 
-## Run
+## How to run
 
-From the project root:
-
-```bash
-python offline_spatial_join_and_sanity_eda.py
-```
-
-Phase 2 regression modeling:
+Run the spatial join and EDA step from the repository root:
 
 ```bash
-MPLCONFIGDIR=/tmp/matplotlib ./.venv_ds/bin/python phase2_regression_modeling.py
+python3 offline_spatial_join_and_sanity_eda.py
 ```
 
-## Outputs
+Run the Phase 2 modeling step:
 
-- `alphaearth_sentinel1_merged.csv`: joined AlphaEarth + SAR dataset
-- `eda_outputs/hist_vv.png`
-- `eda_outputs/hist_vh.png`
-- `eda_outputs/hist_vv_vh_ratio.png`
-- `eda_outputs/pca_cumulative_explained_variance.png`
-- `DataSources/alphaearth_s1_dw_samples_balanced_subset_2024.csv`
-- `phase2_outputs/regression_metrics.csv`
-- `phase2_outputs/regional_metrics_S1_VV.csv`
-- `phase2_outputs/phase2_summary.md`
+```bash
+python3 phase2_regression_modeling.py
+```
 
-The script also prints a concise console summary of join quality and EDA diagnostics.
+If Matplotlib needs a writable config directory in your environment, run:
+
+```bash
+MPLCONFIGDIR=/tmp/matplotlib python3 phase2_regression_modeling.py
+```
+
+## Notes
+
+- The scripts are designed for local, offline execution against files already present in the repository tree.
+- Output directories such as `eda_outputs/` and `phase2_outputs/` are created when the scripts are run.
