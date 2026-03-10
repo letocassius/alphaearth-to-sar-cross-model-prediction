@@ -18,13 +18,14 @@ from matplotlib.backends.backend_pdf import PdfPages
 OUTPUT_DIR = Path("phase2_outputs")
 REPORT_PATH = OUTPUT_DIR / "phase2_model_performance_report.pdf"
 METRICS_PATH = OUTPUT_DIR / "regression_metrics.csv"
-REGIONAL_PATH = OUTPUT_DIR / "regional_metrics_S1_VV.csv"
+REGIONAL_PATH = OUTPUT_DIR / "regional_metrics.csv"
+LAND_USE_PATH = OUTPUT_DIR / "land_use_metrics.csv"
 SUBSET_PATH = Path("DataSources/alphaearth_s1_dw_samples_balanced_subset_2024.csv")
 FULL_DATA_PATH = Path("DataSources/alphaearth_s1_dw_samples_all_regions_2024.csv")
 TARGETS = ["S1_VV", "S1_VH", "S1_VV_div_VH"]
 MODEL_LABELS = {
     "ridge": "Ridge regression",
-    "histgradientboosting": "Histogram gradient boosting",
+    "lightgbm": "Tuned LightGBM",
 }
 
 
@@ -100,13 +101,14 @@ def draw_image_grid_page(title: str, image_paths: list[Path], pdf: PdfPages) -> 
 def format_metrics_table(metrics_df: pd.DataFrame) -> pd.DataFrame:
     table = metrics_df.copy()
     table["model"] = table["model"].map(MODEL_LABELS)
-    table["best_cv_r2"] = table["best_cv_r2"].map(lambda x: f"{x:.3f}")
+    table["cv_r2_mean"] = table["cv_r2_mean"].map(lambda x: f"{x:.3f}")
+    table["cv_rmse_mean"] = table["cv_rmse_mean"].map(lambda x: f"{x:.3f}")
     table["r2"] = table["r2"].map(lambda x: f"{x:.3f}")
     table["rmse"] = table["rmse"].map(lambda x: f"{x:.3f}")
     table["mae"] = table["mae"].map(lambda x: f"{x:.3f}")
     table["pearson_r"] = table["pearson_r"].map(lambda x: f"{x:.3f}")
     table["best_params"] = table["best_params"].map(lambda s: s if len(s) <= 56 else s[:53] + "...")
-    return table[["target", "model", "best_cv_r2", "r2", "rmse", "mae", "pearson_r", "best_params"]]
+    return table[["target", "model", "cv_r2_mean", "cv_rmse_mean", "r2", "rmse", "mae", "pearson_r", "best_params"]]
 
 
 def format_regional_table(regional_df: pd.DataFrame) -> pd.DataFrame:
@@ -121,13 +123,13 @@ def build_feature_lines() -> list[str]:
     lines = ["Top 5 embedding dimensions by target and model", ""]
     for target in TARGETS:
         ridge = pd.read_csv(OUTPUT_DIR / f"feature_importance_{target}_ridge.csv").head(5)
-        hgbr = pd.read_csv(OUTPUT_DIR / f"feature_importance_{target}_histgradientboosting.csv").head(5)
+        lightgbm = pd.read_csv(OUTPUT_DIR / f"feature_importance_{target}_lightgbm.csv").head(5)
 
         lines.append(f"{target}")
         lines.append("  Ridge: " + ", ".join(f"{row.feature} ({row.abs_coefficient:.3f})" for row in ridge.itertuples()))
         lines.append(
-            "  HistGB: "
-            + ", ".join(f"{row.feature} ({row.importance_mean:.3f})" for row in hgbr.itertuples())
+            "  LightGBM: "
+            + ", ".join(f"{row.feature} ({row.permutation_mean:.3f})" for row in lightgbm.itertuples())
         )
         lines.append("")
     return lines
@@ -135,7 +137,8 @@ def build_feature_lines() -> list[str]:
 
 def main() -> None:
     metrics_df = pd.read_csv(METRICS_PATH).sort_values(["target", "r2"], ascending=[True, False]).reset_index(drop=True)
-    regional_df = pd.read_csv(REGIONAL_PATH).sort_values(["region", "model"]).reset_index(drop=True)
+    regional_df = pd.read_csv(REGIONAL_PATH).sort_values(["target", "region", "model"]).reset_index(drop=True)
+    land_use_df = pd.read_csv(LAND_USE_PATH).sort_values(["target", "dw_label_name", "model"]).reset_index(drop=True)
     subset_df = pd.read_csv(SUBSET_PATH)
     full_df = pd.read_csv(FULL_DATA_PATH)
 
@@ -149,7 +152,8 @@ def main() -> None:
         f"Dynamic World classes: {subset_df['dw_label'].nunique()}",
         "",
         "Held-out test split: 70/30 stratified by region x dw_label",
-        "Models compared: ridge regression vs histogram gradient boosting",
+        "CV tuning: StratifiedGroupKFold grouped by spatial blocks within region",
+        "Models compared: ridge regression vs tuned LightGBM",
         "",
         "Best held-out model by target:",
     ]
@@ -157,13 +161,16 @@ def main() -> None:
         summary_lines.append(
             f"- {row.target}: {MODEL_LABELS[row.model]} with R2={row.r2:.3f}, RMSE={row.rmse:.3f}, MAE={row.mae:.3f}, r={row.pearson_r:.3f}"
         )
+    vv = metrics_df[metrics_df["target"] == "S1_VV"].set_index("model")
+    vh = metrics_df[metrics_df["target"] == "S1_VH"].set_index("model")
+    ratio = metrics_df[metrics_df["target"] == "S1_VV_div_VH"].set_index("model")
     summary_lines.extend(
         [
             "",
             "Key interpretation:",
-            "- Ridge regression outperformed the boosted trees on all three SAR targets in this 720-row balanced subset.",
-            "- S1_VH was the easiest target to predict; the VV/VH ratio remained the hardest.",
-            "- For S1_VV, amazon_forest had the strongest regional fit and sf_bay_urban had the weakest for both models.",
+            f"- Tuned LightGBM improved over the old fixed-tree baseline and clearly beats ridge on VV/VH ratio ({ratio.loc['lightgbm','r2']:.3f} vs {ratio.loc['ridge','r2']:.3f}).",
+            f"- Ridge still remains best on S1_VV ({vv.loc['ridge','r2']:.3f} vs {vv.loc['lightgbm','r2']:.3f}) and S1_VH ({vh.loc['ridge','r2']:.3f} vs {vh.loc['lightgbm','r2']:.3f}).",
+            "- S1_VH remains the easiest target overall; the VV/VH ratio remains the hardest.",
         ]
     )
 
@@ -173,13 +180,27 @@ def main() -> None:
             "Overall Held-out Performance",
             format_metrics_table(metrics_df),
             pdf,
-            footnote="Metrics are computed on the 30 percent held-out test set. best_cv_r2 is the mean 3-fold CV score on the training split.",
+            footnote="Metrics are computed on the 30 percent held-out test set. cv_r2_mean and cv_rmse_mean come from grouped CV on the training split.",
         )
         draw_dataframe_page(
             "Regional S1_VV Performance",
-            format_regional_table(regional_df),
+            format_regional_table(regional_df[regional_df["target"] == "S1_VV"].drop(columns=["target"]).reset_index(drop=True)),
             pdf,
             footnote="Each region contributes 54 held-out samples in the balanced test split.",
+        )
+        draw_dataframe_page(
+            "Land-Use S1_VV Performance",
+            land_use_df[land_use_df["target"] == "S1_VV"][["dw_label_name", "model", "r2", "rmse", "mae", "pearson_r", "n_test"]]
+            .assign(model=lambda df: df["model"].map(MODEL_LABELS))
+            .assign(
+                r2=lambda df: df["r2"].map(lambda x: f"{x:.3f}"),
+                rmse=lambda df: df["rmse"].map(lambda x: f"{x:.3f}"),
+                mae=lambda df: df["mae"].map(lambda x: f"{x:.3f}"),
+                pearson_r=lambda df: df["pearson_r"].map(lambda x: f"{x:.3f}"),
+            )
+            .reset_index(drop=True),
+            pdf,
+            footnote="Subgroup diagnostics for the primary S1_VV target on the held-out test set.",
         )
         draw_text_page("Feature Importance Summary", build_feature_lines(), pdf)
         draw_image_grid_page(
@@ -188,8 +209,13 @@ def main() -> None:
             pdf,
         )
         draw_image_grid_page(
-            "Predicted vs Actual: Histogram Gradient Boosting",
-            [OUTPUT_DIR / f"predicted_vs_actual_{target}_histgradientboosting.png" for target in TARGETS],
+            "Predicted vs Actual: Tuned LightGBM",
+            [OUTPUT_DIR / f"predicted_vs_actual_{target}_lightgbm.png" for target in TARGETS],
+            pdf,
+        )
+        draw_image_grid_page(
+            "Residual Histograms: Tuned LightGBM",
+            [OUTPUT_DIR / f"residual_histogram_{target}_lightgbm.png" for target in TARGETS],
             pdf,
         )
 
