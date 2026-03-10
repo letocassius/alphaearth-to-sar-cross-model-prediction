@@ -1,0 +1,23 @@
+{
+  "dataset_path": "DataSources/alphaearth_s1_dw_samples_all_regions_2024.csv",
+  "rows_used": 2880,
+  "train_rows": 2016,
+  "test_rows": 864,
+  "feature_sets": [
+    "embedding_only",
+    "embedding_plus_context"
+  ],
+  "targets": [
+    "S1_VV",
+    "S1_VH",
+    "S1_VV_div_VH"
+  ],
+  "spatial_bins_per_axis": 4,
+  "optuna_trials": 20,
+  "stability_seeds": [
+    42,
+    52,
+    62
+  ],
+  "runtime_seconds": 743.66845703125
+}

@@ -1,0 +1,35 @@
+{
+  "dataset_path": "DataSources/alphaearth_s1_dw_samples_all_regions_2024.csv",
+  "n_rows": 2880,
+  "n_embedding_features": 64,
+  "n_regions": 4,
+  "n_land_use_labels": 9,
+  "spatial_blocks": 64,
+  "missing_ratio": 0.0,
+  "duplicate_rows_embedding_region_label": 5,
+  "near_constant_embedding_dims": 0,
+  "high_corr_feature_pairs_abs_gt_0_95": 0,
+  "targets": {
+    "S1_VV": {
+      "mean": -12.78312051760229,
+      "std": 3.8952800701963306,
+      "min": -28.630113536761662,
+      "max": 6.339272489263783,
+      "skew": -0.43507385587521236
+    },
+    "S1_VH": {
+      "mean": -20.29555533628709,
+      "std": 4.965629500998113,
+      "min": -37.56687123701075,
+      "max": -6.2637412759822935,
+      "skew": -0.8809746842978461
+    },
+    "S1_VV_div_VH": {
+      "mean": 7.512434818684797,
+      "std": 2.0703650355167103,
+      "min": 1.7683138310606277,
+      "max": 18.269305364674253,
+      "skew": 1.2751279619336442
+    }
+  }
+}

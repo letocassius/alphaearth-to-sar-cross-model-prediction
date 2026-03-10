@@ -7,7 +7,10 @@ This repository contains an offline workflow for testing whether AlphaEarth embe
 - `offline_spatial_join_and_sanity_eda.py`: auto-detects AlphaEarth and Sentinel-1 CSVs, performs a nearest-neighbor spatial join, and saves sanity-check visualizations.
 - `phase2_regression_modeling.py`: builds a balanced modeling subset from the combined 2024 dataset, audits the data, and evaluates ridge and tuned LightGBM regressors for SAR targets.
 - `build_phase2_pdf_report.py`: renders the saved Phase 2 metrics, diagnostics, and plots into a PDF report.
-- `phase2_model_performance_report.pdf`: top-level copy of the latest generated Phase 2 report.
+- `phase2_full_dataset_lightgbm_experiments.py`: runs a separate full-dataset LightGBM ablation on all 2,880 rows without changing the existing Phase 2 outputs.
+- `build_phase2_full_dataset_pdf_report.py`: renders the saved full-dataset ablation metrics and diagnostics into a PDF report.
+- `build_consolidated_summary_report.py`: renders a single summary PDF across the subset benchmark and the full-dataset ablation.
+- `alphaearth_to_sar_consolidated_summary_report.pdf`: the current top-level summary report for the repository.
 - `DataSources/`: bundled CSV and GeoTIFF inputs for the four study regions.
 
 ## Workflow
@@ -63,6 +66,43 @@ Generate the PDF report after modeling with:
 python3 build_phase2_pdf_report.py
 ```
 
+### 3. Full-dataset LightGBM ablation
+
+`phase2_full_dataset_lightgbm_experiments.py` uses all 2,880 rows and compares:
+
+- `embedding_only`
+- `embedding_plus_context` using region plus Dynamic World probabilities
+
+The script:
+
+- preserves the existing Phase 2 files and outputs
+- tunes LightGBM for each target and feature-set ablation
+- runs repeated grouped-CV stability checks across multiple seeds
+- reports held-out metrics plus regional and land-use diagnostics
+- saves all outputs to `phase2_full_dataset_outputs/`
+
+Generated outputs include:
+
+- `phase2_full_dataset_outputs/full_dataset_lightgbm_metrics.csv`
+- `phase2_full_dataset_outputs/full_dataset_lightgbm_stability.csv`
+- `phase2_full_dataset_outputs/full_dataset_lightgbm_regional_metrics.csv`
+- `phase2_full_dataset_outputs/full_dataset_lightgbm_land_use_metrics.csv`
+- `phase2_full_dataset_outputs/phase2_full_dataset_lightgbm_report.pdf`
+
+Render the full-dataset PDF report with:
+
+```bash
+python3 build_phase2_full_dataset_pdf_report.py
+```
+
+### 4. Consolidated summary report
+
+Build the top-level summary report that synthesizes the subset benchmark and the full-dataset ablation:
+
+```bash
+python3 build_consolidated_summary_report.py
+```
+
 ## Study regions and data assets
 
 The repository currently includes per-region data for:
@@ -115,7 +155,15 @@ Then render the PDF report:
 MPLCONFIGDIR=/tmp/matplotlib python3 build_phase2_pdf_report.py
 ```
 
+Run the full-dataset ablation:
+
+```bash
+MPLCONFIGDIR=/tmp/matplotlib python3 phase2_full_dataset_lightgbm_experiments.py
+MPLCONFIGDIR=/tmp/matplotlib python3 build_phase2_full_dataset_pdf_report.py
+MPLCONFIGDIR=/tmp/matplotlib python3 build_consolidated_summary_report.py
+```
+
 ## Notes
 
 - The scripts are designed for local, offline execution against files already present in the repository tree.
-- Output directories such as `eda_outputs/` and `phase2_outputs/` are created when the scripts are run.
+- Output directories such as `eda_outputs/`, `phase2_outputs/`, and `phase2_full_dataset_outputs/` are created when the scripts are run.
