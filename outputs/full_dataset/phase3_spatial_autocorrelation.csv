@@ -1,0 +1,13 @@
+target,feature_set,model_label,region,n,morans_i,p_value,significant_at_0_05
+S1_VH,embedding_only,Embeddings only,amazon_forest,216,-0.05809242098970524,0.18,False
+S1_VH,embedding_only,Embeddings only,california_coast,216,0.06935159686063562,0.086,False
+S1_VH,embedding_only,Embeddings only,iowa_ag,216,-0.0008429943286982728,0.996,False
+S1_VH,embedding_only,Embeddings only,sf_bay_urban,216,0.016767835451514803,0.658,False
+S1_VV,embedding_only,Embeddings only,amazon_forest,216,-0.025937979069280505,0.506,False
+S1_VV,embedding_only,Embeddings only,california_coast,216,0.0922922405978118,0.026,True
+S1_VV,embedding_only,Embeddings only,iowa_ag,216,0.01173112795482245,0.742,False
+S1_VV,embedding_only,Embeddings only,sf_bay_urban,216,0.03225105444805204,0.384,False
+S1_VV_div_VH,embedding_plus_context,Embeddings + context,amazon_forest,216,-0.01771472736507564,0.626,False
+S1_VV_div_VH,embedding_plus_context,Embeddings + context,california_coast,216,0.05230815036045859,0.196,False
+S1_VV_div_VH,embedding_plus_context,Embeddings + context,iowa_ag,216,0.03189771585116447,0.424,False
+S1_VV_div_VH,embedding_plus_context,Embeddings + context,sf_bay_urban,216,0.06641098851111985,0.104,False

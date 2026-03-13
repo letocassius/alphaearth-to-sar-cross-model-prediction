@@ -1,107 +1,107 @@
 # alphaearth-to-sar-cross-model-prediction
 
-This repository contains an offline workflow for testing whether AlphaEarth embedding vectors can predict Sentinel-1 SAR measurements across multiple land-cover contexts.
+This repository contains the current offline workflow for testing whether AlphaEarth embedding vectors can predict Sentinel-1 SAR measurements across multiple land-cover contexts, then analyzing where those predictions fail.
 
-## Repository contents
+## Repository layout
 
-- `offline_spatial_join_and_sanity_eda.py`: auto-detects AlphaEarth and Sentinel-1 CSVs, performs a nearest-neighbor spatial join, and saves sanity-check visualizations.
-- `phase2_regression_modeling.py`: builds a balanced modeling subset from the combined 2024 dataset, audits the data, and evaluates ridge and tuned LightGBM regressors for SAR targets.
-- `build_phase2_pdf_report.py`: renders the saved Phase 2 metrics, diagnostics, and plots into a PDF report.
-- `phase2_full_dataset_lightgbm_experiments.py`: runs a separate full-dataset LightGBM ablation on all 2,880 rows without changing the existing Phase 2 outputs.
-- `build_phase2_full_dataset_pdf_report.py`: renders the saved full-dataset ablation metrics and diagnostics into a PDF report.
-- `build_consolidated_summary_report.py`: renders a single summary PDF across the subset benchmark and the full-dataset ablation.
-- `alphaearth_to_sar_consolidated_summary_report.pdf`: the current top-level summary report for the repository.
-- `DataSources/`: bundled CSV and GeoTIFF inputs for the four study regions.
+```text
+alphaearth-to-sar-cross-model-prediction/
+├── DataSources/              # input CSVs and other source data
+├── scripts/                  # active analysis and reporting scripts
+├── outputs/
+│   ├── eda/                  # offline spatial join + sanity EDA outputs
+│   └── full_dataset/         # current Phase 2 and Phase 3 machine outputs
+├── reports/                  # human-facing PDF summaries
+├── archive/
+│   └── legacy_subset/        # archived outputs from the older subset pipeline
+└── README.md
+```
 
-## Workflow
+## Active workflow
 
 ### 1. Offline spatial join and sanity EDA
 
-`offline_spatial_join_and_sanity_eda.py`:
+Script: `scripts/offline_spatial_join_and_sanity_eda.py`
 
-- finds an AlphaEarth table by detecting embedding columns such as `A00` to `A63`
-- finds a Sentinel-1 table by detecting SAR-like `VV` and `VH` columns
-- detects coordinates from latitude and longitude columns or parses GeoJSON-style geometry fields such as `.geo`
-- matches AlphaEarth points to the nearest SAR point with a maximum distance of 10 meters
-- saves a merged table plus basic diagnostics for missingness, SAR distributions, and embedding PCA
+- auto-detects AlphaEarth and Sentinel-1 CSVs
+- performs the nearest-neighbor spatial join
+- saves the merged table and sanity-check plots to `outputs/eda/`
 
-Generated outputs include:
+Main outputs:
 
-- `alphaearth_sentinel1_merged.csv`
-- `eda_outputs/`
+- `outputs/eda/alphaearth_sentinel1_merged.csv`
+- `outputs/eda/`
 
-### 2. Phase 2 regression modeling
+### 2. Phase 2 full-dataset modeling
 
-`phase2_regression_modeling.py` uses `DataSources/alphaearth_s1_dw_samples_all_regions_2024.csv` as the modeling input. The dataset contains 2,880 rows:
+Script: `scripts/phase2_full_dataset_lightgbm_experiments.py`
 
-- 4 regions
-- 9 Dynamic World labels
-- 80 samples in each `region x dw_label` cell
+- uses `DataSources/alphaearth_s1_dw_samples_all_regions_2024.csv`
+- trains LightGBM models on all 2,880 rows
+- compares `embedding_only` vs `embedding_plus_context`
+- evaluates `S1_VV`, `S1_VH`, and `S1_VV_div_VH`
+- saves metrics, diagnostics, predictions, and plots to `outputs/full_dataset/`
 
-The script:
+Core outputs:
 
-- samples a balanced subset with 20 rows per `region x dw_label` cell
-- defines spatial blocks within each region for grouped validation
-- trains ridge and tuned LightGBM regressors
-- predicts `S1_VV`, `S1_VH`, and `S1_VV_div_VH`
-- tunes LightGBM with Optuna Bayesian search and early-stopping-informed tree counts
-- reports held-out test metrics plus region-level and land-use-level diagnostics
-- saves prediction plots, residual histograms, feature-importance tables, CV search results, and optimization metadata
+- `outputs/full_dataset/full_dataset_lightgbm_metrics.csv`
+- `outputs/full_dataset/full_dataset_lightgbm_stability.csv`
+- `outputs/full_dataset/full_dataset_lightgbm_regional_metrics.csv`
+- `outputs/full_dataset/full_dataset_lightgbm_land_use_metrics.csv`
+- `outputs/full_dataset/test_predictions_*`
+- `outputs/full_dataset/feature_importance_*`
 
-Generated outputs include:
+### 3. Phase 3 failure-mode analysis
 
-- `DataSources/alphaearth_s1_dw_samples_balanced_subset_2024.csv`
-- `phase2_outputs/dataset_audit.json`
-- `phase2_outputs/regression_metrics.csv`
-- `phase2_outputs/regional_metrics.csv`
-- `phase2_outputs/land_use_metrics.csv`
-- `phase2_outputs/cv_results_*_lightgbm.csv`
-- `phase2_outputs/best_params_*_lightgbm.json`
-- `phase2_outputs/phase2_summary.md`
-- `phase2_outputs/phase2_model_performance_report.pdf`
+Script: `scripts/phase3_failure_analysis.py`
 
-Generate the PDF report after modeling with:
+- selects the best held-out full-dataset model for each target
+- analyzes held-out residuals by land use and by region
+- computes Moran's I spatial autocorrelation diagnostics within each region
+- generates a failure-mode outlier catalog for the primary `S1_VV` target
+- exports GeoJSON residual layers and Phase 3 figures to `outputs/full_dataset/`
 
-```bash
-python3 build_phase2_pdf_report.py
-```
+Core outputs:
 
-### 3. Full-dataset LightGBM ablation
+- `outputs/full_dataset/phase3_best_model_selection.csv`
+- `outputs/full_dataset/phase3_best_model_predictions.csv`
+- `outputs/full_dataset/phase3_land_use_error.csv`
+- `outputs/full_dataset/phase3_regional_error.csv`
+- `outputs/full_dataset/phase3_region_land_use_error.csv`
+- `outputs/full_dataset/phase3_spatial_autocorrelation.csv`
+- `outputs/full_dataset/phase3_outliers_S1_VV.csv`
+- `outputs/full_dataset/phase3_residuals_S1_VV.geojson`
 
-`phase2_full_dataset_lightgbm_experiments.py` uses all 2,880 rows and compares:
+### 4. Report generation
 
-- `embedding_only`
-- `embedding_plus_context` using region plus Dynamic World probabilities
+Primary script: `scripts/build_project_reports.py`
 
-The script:
+- builds three PDF summaries in one run
+- writes a Phase 2 summary PDF
+- writes a Phase 3 summary PDF
+- writes a cumulative project summary PDF
+- stores the PDFs in both `outputs/full_dataset/` and `reports/`
 
-- preserves the existing Phase 2 files and outputs
-- tunes LightGBM for each target and feature-set ablation
-- runs repeated grouped-CV stability checks across multiple seeds
-- reports held-out metrics plus regional and land-use diagnostics
-- saves all outputs to `phase2_full_dataset_outputs/`
+Compatibility wrapper: `scripts/build_phase2_full_dataset_pdf_report.py`
 
-Generated outputs include:
+- calls the same multi-report pipeline
 
-- `phase2_full_dataset_outputs/full_dataset_lightgbm_metrics.csv`
-- `phase2_full_dataset_outputs/full_dataset_lightgbm_stability.csv`
-- `phase2_full_dataset_outputs/full_dataset_lightgbm_regional_metrics.csv`
-- `phase2_full_dataset_outputs/full_dataset_lightgbm_land_use_metrics.csv`
-- `phase2_full_dataset_outputs/phase2_full_dataset_lightgbm_report.pdf`
+Generated reports:
 
-Render the full-dataset PDF report with:
+- `reports/phase2_modeling_summary_report.pdf`
+- `reports/phase3_failure_analysis_summary_report.pdf`
+- `reports/project_summary_report.pdf`
+- `reports/phase2_full_dataset_lightgbm_report.pdf`
+  This is a legacy alias that now points to the cumulative project summary.
 
-```bash
-python3 build_phase2_full_dataset_pdf_report.py
-```
+## Archived material
 
-### 4. Consolidated summary report
+Older subset-based outputs are preserved under:
 
-Build the top-level summary report that synthesizes the subset benchmark and the full-dataset ablation:
+- `archive/legacy_subset/phase2_outputs/`
+- `archive/legacy_subset/alphaearth_to_sar_consolidated_summary_report.pdf`
 
-```bash
-python3 build_consolidated_summary_report.py
-```
+These files are kept for reference only and are not part of the current workflow.
 
 ## Study regions and data assets
 
@@ -117,7 +117,6 @@ Available source files include:
 - AlphaEarth plus SAR sample CSVs for each region
 - the combined all-regions modeling CSV
 - Sentinel-1 SAR tabular data
-- Sentinel-2 context GeoTIFFs for the same four regions
 
 ## Environment setup
 
@@ -131,39 +130,38 @@ pip install pandas numpy scipy scikit-learn matplotlib optuna lightgbm
 
 ## How to run
 
-Run the spatial join and EDA step from the repository root:
+Run the spatial join and sanity EDA:
 
 ```bash
-python3 offline_spatial_join_and_sanity_eda.py
+python3 scripts/offline_spatial_join_and_sanity_eda.py
 ```
 
-Run the Phase 2 modeling step:
+Run the Phase 2 full-dataset modeling step:
 
 ```bash
-python3 phase2_regression_modeling.py
+MPLCONFIGDIR=/tmp/matplotlib python3 scripts/phase2_full_dataset_lightgbm_experiments.py
 ```
 
-If Matplotlib needs a writable config directory in your environment, run:
+Run the Phase 3 failure analysis:
 
 ```bash
-MPLCONFIGDIR=/tmp/matplotlib python3 phase2_regression_modeling.py
+MPLCONFIGDIR=/tmp/matplotlib python3 scripts/phase3_failure_analysis.py
 ```
 
-Then render the PDF report:
+Build all reports:
 
 ```bash
-MPLCONFIGDIR=/tmp/matplotlib python3 build_phase2_pdf_report.py
+MPLCONFIGDIR=/tmp/matplotlib python3 scripts/build_project_reports.py
 ```
 
-Run the full-dataset ablation:
+The compatibility command still works:
 
 ```bash
-MPLCONFIGDIR=/tmp/matplotlib python3 phase2_full_dataset_lightgbm_experiments.py
-MPLCONFIGDIR=/tmp/matplotlib python3 build_phase2_full_dataset_pdf_report.py
-MPLCONFIGDIR=/tmp/matplotlib python3 build_consolidated_summary_report.py
+MPLCONFIGDIR=/tmp/matplotlib python3 scripts/build_phase2_full_dataset_pdf_report.py
 ```
 
 ## Notes
 
-- The scripts are designed for local, offline execution against files already present in the repository tree.
-- Output directories such as `eda_outputs/`, `phase2_outputs/`, and `phase2_full_dataset_outputs/` are created when the scripts are run.
+- The active scripts resolve paths from their own file location, so they can be run from the repository root or another working directory.
+- The current machine-generated outputs live under `outputs/full_dataset/`.
+- The human-facing PDFs live under `reports/`.

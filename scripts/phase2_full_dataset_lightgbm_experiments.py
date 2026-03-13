@@ -33,9 +33,9 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import StratifiedGroupKFold, train_test_split
 
 
-DATA_PATH = Path("DataSources/alphaearth_s1_dw_samples_all_regions_2024.csv")
-OUTPUT_DIR = Path("phase2_full_dataset_outputs")
-REPORT_COPY_PATH = Path("phase2_full_dataset_lightgbm_report.pdf")
+ROOT_DIR = Path(__file__).resolve().parent.parent
+DATA_PATH = ROOT_DIR / "DataSources" / "alphaearth_s1_dw_samples_all_regions_2024.csv"
+OUTPUT_DIR = ROOT_DIR / "outputs" / "full_dataset"
 RANDOM_STATE = 42
 SPATIAL_BINS_PER_AXIS = 4
 OPTUNA_TRIALS = 20

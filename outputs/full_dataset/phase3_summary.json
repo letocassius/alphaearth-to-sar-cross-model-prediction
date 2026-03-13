@@ -1,0 +1,57 @@
+{
+  "primary_target": "S1_VV",
+  "targets": [
+    "S1_VV",
+    "S1_VH",
+    "S1_VV_div_VH"
+  ],
+  "best_models": [
+    {
+      "target": "S1_VH",
+      "feature_set": "embedding_only",
+      "model_label": "Embeddings only",
+      "r2": 0.9423642665,
+      "rmse": 1.1822269452,
+      "mae": 0.8581295087,
+      "pearson_r": 0.9708842646
+    },
+    {
+      "target": "S1_VV",
+      "feature_set": "embedding_only",
+      "model_label": "Embeddings only",
+      "r2": 0.9022356516,
+      "rmse": 1.254937865,
+      "mae": 0.8251533451,
+      "pearson_r": 0.9507947065
+    },
+    {
+      "target": "S1_VV_div_VH",
+      "feature_set": "embedding_plus_context",
+      "model_label": "Embeddings + context",
+      "r2": 0.6984642182,
+      "rmse": 1.1551532187,
+      "mae": 0.7983941263,
+      "pearson_r": 0.8360714832
+    }
+  ],
+  "primary_hardest_land_use": [
+    {
+      "dw_label_name": "built",
+      "mae": 1.2268515611021764,
+      "bias": -0.3334974207897605
+    },
+    {
+      "dw_label_name": "water",
+      "mae": 1.0112189325362728,
+      "bias": 0.019711780330045947
+    },
+    {
+      "dw_label_name": "shrub_and_scrub",
+      "mae": 0.902353474163776,
+      "bias": -0.05426367563809176
+    }
+  ],
+  "primary_significant_regions": [
+    "california_coast"
+  ]
+}

@@ -22,9 +22,11 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
 
+ROOT_DIR = Path(__file__).resolve().parent.parent
+OUTPUT_DIR = ROOT_DIR / "outputs" / "eda"
 MAX_MATCH_DISTANCE_M = 10.0
-MERGED_OUTPUT = Path("alphaearth_sentinel1_merged.csv")
-EDA_DIR = Path("eda_outputs")
+MERGED_OUTPUT = OUTPUT_DIR / "alphaearth_sentinel1_merged.csv"
+EDA_DIR = OUTPUT_DIR
 
 
 def normalize_colname(col: str) -> str:
@@ -409,7 +411,8 @@ def print_summary(alpha_path: Path, sar_path: Path, join_report: Dict[str, float
 
 
 def main() -> None:
-    alpha_path, sar_path = find_input_csvs(Path("."))
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    alpha_path, sar_path = find_input_csvs(ROOT_DIR)
 
     alpha_df = pd.read_csv(alpha_path)
     sar_df = pd.read_csv(sar_path)
