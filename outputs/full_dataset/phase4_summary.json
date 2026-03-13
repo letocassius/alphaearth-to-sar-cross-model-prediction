@@ -1,0 +1,104 @@
+{
+  "sentinel2_context_present": true,
+  "sentinel2_tif_count": 4,
+  "sentinel2_chip_figure_generated": true,
+  "embedding_neighbors_k_values": [
+    5,
+    10,
+    20
+  ],
+  "overall_overlap": [
+    {
+      "k": 5,
+      "n_queries": 2880,
+      "mean_overlap": 0.0195138889,
+      "median_overlap": 0.0,
+      "p10_overlap": 0.0,
+      "p90_overlap": 0.0
+    },
+    {
+      "k": 10,
+      "n_queries": 2880,
+      "mean_overlap": 0.031875,
+      "median_overlap": 0.0,
+      "p10_overlap": 0.0,
+      "p90_overlap": 0.1
+    },
+    {
+      "k": 20,
+      "n_queries": 2880,
+      "mean_overlap": 0.0532986111,
+      "median_overlap": 0.0,
+      "p10_overlap": 0.0,
+      "p90_overlap": 0.15
+    }
+  ],
+  "best_land_use_at_k10": [
+    {
+      "k": 10,
+      "dw_label_name": "water",
+      "n_queries": 320,
+      "mean_overlap": 0.0978125,
+      "median_overlap": 0.1,
+      "p10_overlap": 0.0,
+      "p90_overlap": 0.3
+    },
+    {
+      "k": 10,
+      "dw_label_name": "snow_and_ice",
+      "n_queries": 320,
+      "mean_overlap": 0.0428125,
+      "median_overlap": 0.0,
+      "p10_overlap": 0.0,
+      "p90_overlap": 0.1
+    },
+    {
+      "k": 10,
+      "dw_label_name": "flooded_vegetation",
+      "n_queries": 320,
+      "mean_overlap": 0.035625,
+      "median_overlap": 0.0,
+      "p10_overlap": 0.0,
+      "p90_overlap": 0.1
+    }
+  ],
+  "worst_land_use_at_k10": [
+    {
+      "k": 10,
+      "dw_label_name": "crops",
+      "n_queries": 320,
+      "mean_overlap": 0.0140625,
+      "median_overlap": 0.0,
+      "p10_overlap": 0.0,
+      "p90_overlap": 0.1
+    },
+    {
+      "k": 10,
+      "dw_label_name": "shrub_and_scrub",
+      "n_queries": 320,
+      "mean_overlap": 0.0153125,
+      "median_overlap": 0.0,
+      "p10_overlap": 0.0,
+      "p90_overlap": 0.1
+    },
+    {
+      "k": 10,
+      "dw_label_name": "grass",
+      "n_queries": 320,
+      "mean_overlap": 0.015625,
+      "median_overlap": 0.0,
+      "p10_overlap": 0.0,
+      "p90_overlap": 0.1
+    }
+  ],
+  "overall_distance_correlation": {
+    "n_pairs": 200000,
+    "pearson_r": 0.194517728763557,
+    "pearson_p_value": 0.0,
+    "spearman_rho": 0.15078582627758463,
+    "spearman_p_value": 0.0,
+    "scope": "overall",
+    "group": "all"
+  },
+  "qualitative_note": "Sentinel-2 context rasters were used to extract representative RGB chips for the query pixel, the top embedding-space neighbor, and the top SAR-space neighbor."
+}

@@ -13,3 +13,4 @@ DataSources/alphaearth_sentinel1_merged.csv
 DataSources/alphaearth_s1_dw_samples_balanced_subset_2024.csv
 DataSources/Untitled
 DataSources/*.tif
+DataSources/sentinel2_context/
