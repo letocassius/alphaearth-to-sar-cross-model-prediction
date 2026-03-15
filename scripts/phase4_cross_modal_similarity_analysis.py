@@ -260,6 +260,8 @@ def save_representative_query_figure(rep_df: pd.DataFrame) -> None:
 
 def load_sentinel2_chip(region: str, latitude: float, longitude: float, chip_size: int = 96) -> np.ndarray:
     tif_path = SENTINEL2_DIR / f"sentinel2_context_{region}_2024.tif"
+    if not tif_path.exists():
+        return np.zeros((chip_size, chip_size, 3), dtype=float)
     with rasterio.open(tif_path) as src:
         row, col = src.index(longitude, latitude)
         half = chip_size // 2
@@ -281,7 +283,32 @@ def load_sentinel2_chip(region: str, latitude: float, longitude: float, chip_siz
     return np.clip(chip, 0.0, 1.0)
 
 
-def save_sentinel2_neighbor_chips(rep_df: pd.DataFrame, df: pd.DataFrame) -> None:
+def save_sentinel2_neighbor_chips(rep_df: pd.DataFrame, df: pd.DataFrame) -> bool:
+    available_tifs = sorted(SENTINEL2_DIR.glob("*.tif")) if SENTINEL2_DIR.exists() else []
+    if not available_tifs:
+        fig, ax = plt.subplots(figsize=(10, 4))
+        ax.axis("off")
+        ax.text(
+            0.5,
+            0.58,
+            "Sentinel-2 context unavailable",
+            ha="center",
+            va="center",
+            fontsize=18,
+            fontweight="bold",
+        )
+        ax.text(
+            0.5,
+            0.38,
+            "Cross-modal overlap metrics were generated without local Sentinel-2 raster chips.",
+            ha="center",
+            va="center",
+            fontsize=11,
+        )
+        plt.savefig(OUTPUT_DIR / "phase4_sentinel2_neighbor_chips.png", dpi=220)
+        plt.close(fig)
+        return False
+
     fig, axes = plt.subplots(len(rep_df), 3, figsize=(10, 3.2 * len(rep_df)))
     fig.subplots_adjust(top=0.94, left=0.05, right=0.98, bottom=0.04, hspace=0.18, wspace=0.08)
     fig.suptitle("Phase 4: Sentinel-2 Query and Neighbor Chips", fontsize=18, fontweight="bold")
@@ -310,6 +337,7 @@ def save_sentinel2_neighbor_chips(rep_df: pd.DataFrame, df: pd.DataFrame) -> Non
 
     plt.savefig(OUTPUT_DIR / "phase4_sentinel2_neighbor_chips.png", dpi=220)
     plt.close(fig)
+    return True
 
 
 def main() -> None:
@@ -392,12 +420,18 @@ def main() -> None:
     save_land_use_overlap_bar(land_use_overlap)
     save_distance_scatter(embedding_dist, sar_dist, overall_corr)
     save_representative_query_figure(rep_queries)
-    save_sentinel2_neighbor_chips(rep_queries, df)
+    sentinel2_chip_figure_generated = save_sentinel2_neighbor_chips(rep_queries, df)
+    sentinel2_tif_count = len(list(SENTINEL2_DIR.glob("*.tif"))) if SENTINEL2_DIR.exists() else 0
+    sentinel2_note = (
+        "Sentinel-2 context rasters were used to extract representative RGB chips for the query pixel, the top embedding-space neighbor, and the top SAR-space neighbor."
+        if sentinel2_chip_figure_generated
+        else "Sentinel-2 context rasters were not available locally; the chip figure is a placeholder, but all cross-modal similarity metrics were still generated."
+    )
 
     summary_payload = {
         "sentinel2_context_present": bool(SENTINEL2_DIR.exists()),
-        "sentinel2_tif_count": len(list(SENTINEL2_DIR.glob("*.tif"))),
-        "sentinel2_chip_figure_generated": True,
+        "sentinel2_tif_count": sentinel2_tif_count,
+        "sentinel2_chip_figure_generated": sentinel2_chip_figure_generated,
         "embedding_neighbors_k_values": K_VALUES,
         "overall_overlap": json.loads(overall_overlap.to_json(orient="records")),
         "best_land_use_at_k10": json.loads(
@@ -407,7 +441,7 @@ def main() -> None:
             land_use_overlap[land_use_overlap["k"] == 10].sort_values("mean_overlap", ascending=True).head(3).to_json(orient="records")
         ),
         "overall_distance_correlation": overall_corr,
-        "qualitative_note": "Sentinel-2 context rasters were used to extract representative RGB chips for the query pixel, the top embedding-space neighbor, and the top SAR-space neighbor.",
+        "qualitative_note": sentinel2_note,
     }
     (OUTPUT_DIR / "phase4_summary.json").write_text(json.dumps(summary_payload, indent=2))
 
