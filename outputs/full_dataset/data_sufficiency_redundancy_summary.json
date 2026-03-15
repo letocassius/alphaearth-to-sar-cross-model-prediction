@@ -1,0 +1,13 @@
+{
+  "n_rows": 2880,
+  "n_spatial_blocks": 64,
+  "mean_rows_per_spatial_block": 45.0,
+  "max_rows_per_spatial_block": 90,
+  "spatial_block_effective_n": 56.906062186119264,
+  "n_region_class_cells": 36,
+  "mean_rows_per_region_class_cell": 80.0,
+  "region_class_effective_n": 36.0,
+  "mean_nearest_neighbor_cosine": 0.9551972054146328,
+  "p95_nearest_neighbor_cosine": 0.9982464287122937,
+  "exact_duplicate_embedding_rows": 5
+}

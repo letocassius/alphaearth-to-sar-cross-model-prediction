@@ -13,6 +13,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from matplotlib.backends.backend_pdf import PdfPages
 
@@ -51,6 +52,12 @@ PHASE4_LAND_USE_PATH = OUTPUT_DIR / "phase4_knn_overlap_by_land_use.csv"
 PHASE4_REGION_PATH = OUTPUT_DIR / "phase4_knn_overlap_by_region.csv"
 PHASE4_CORR_PATH = OUTPUT_DIR / "phase4_distance_correlation.csv"
 PHASE4_QUERIES_PATH = OUTPUT_DIR / "phase4_representative_queries.csv"
+REPORT_FEATURE_IMPORTANCE_SUMMARY_PATH = OUTPUT_DIR / "project_report_feature_importance_summary.csv"
+REPORT_RESIDUAL_REGION_SUMMARY_PATH = OUTPUT_DIR / "project_report_residual_region_summary.csv"
+REPORT_POLARIZATION_FAILURE_REGION_PATH = OUTPUT_DIR / "project_report_polarization_failure_by_region.csv"
+REPORT_POLARIZATION_FAILURE_LAND_USE_PATH = OUTPUT_DIR / "project_report_polarization_failure_by_land_use.csv"
+REPORT_POLARIZATION_FAILURE_VALUE_BIN_PATH = OUTPUT_DIR / "project_report_polarization_failure_by_value_bin.csv"
+REPORT_POLARIZATION_OUTLIERS_PATH = OUTPUT_DIR / "project_report_polarization_outliers.csv"
 TARGETS = ["S1_VV", "S1_VH", "S1_VV_div_VH"]
 FEATURE_LABELS = {
     "embedding_only": "Embeddings only",
@@ -261,6 +268,210 @@ def build_feature_lines() -> list[str]:
     return lines
 
 
+def classify_feature_family(feature_name: str) -> str:
+    if feature_name.startswith("A"):
+        return "embedding"
+    if feature_name.startswith("region_"):
+        return "region"
+    return "dynamic_world"
+
+
+def build_report_analysis_assets(
+    metrics_df: pd.DataFrame,
+    polarization_df: pd.DataFrame,
+) -> dict[str, object]:
+    feature_rows: list[dict[str, object]] = []
+    feature_plot_paths: list[Path] = []
+
+    best_lightgbm_rows = (
+        metrics_df[metrics_df["model_name"] == "lightgbm"]
+        .sort_values(["target", "r2"], ascending=[True, False])
+        .groupby("target", as_index=False)
+        .first()
+    )
+    for row in best_lightgbm_rows.itertuples():
+        path = OUTPUT_DIR / f"feature_importance_{row.feature_set}_{row.target}_lightgbm.csv"
+        importance = pd.read_csv(path).copy()
+        importance["feature_family"] = importance["feature"].map(classify_feature_family)
+        positive = importance[importance["permutation_mean"] > 0].copy()
+        family_summary = (
+            positive.groupby("feature_family", as_index=False)["permutation_mean"]
+            .sum()
+            .rename(columns={"permutation_mean": "total_positive_importance"})
+        )
+        total_positive = float(family_summary["total_positive_importance"].sum()) if not family_summary.empty else 0.0
+        family_share = {
+            row2["feature_family"]: (row2["total_positive_importance"] / total_positive if total_positive > 0 else 0.0)
+            for _, row2 in family_summary.iterrows()
+        }
+        top10 = importance.head(10).copy()
+        for item in top10.itertuples():
+            feature_rows.append(
+                {
+                    "target": row.target,
+                    "feature_set": row.feature_set,
+                    "feature": item.feature,
+                    "feature_family": item.feature_family,
+                    "permutation_mean": item.permutation_mean,
+                    "gain_importance": item.gain_importance,
+                    "embedding_share_positive_importance": family_share.get("embedding", 0.0),
+                    "dynamic_world_share_positive_importance": family_share.get("dynamic_world", 0.0),
+                    "region_share_positive_importance": family_share.get("region", 0.0),
+                }
+            )
+
+        fig, ax = plt.subplots(figsize=(8.5, 5.5))
+        plot_df = top10.sort_values("permutation_mean", ascending=True)
+        colors = plot_df["feature_family"].map(
+            {"embedding": "#2563eb", "dynamic_world": "#059669", "region": "#ea580c"}
+        )
+        ax.barh(plot_df["feature"], plot_df["permutation_mean"], color=colors)
+        ax.set_title(f"Top LightGBM features: {row.target} ({FEATURE_LABELS[row.feature_set]})")
+        ax.set_xlabel("Permutation importance (R2 drop)")
+        ax.grid(axis="x", alpha=0.25)
+        fig.tight_layout()
+        plot_path = OUTPUT_DIR / f"project_report_feature_importance_{row.target}.png"
+        fig.savefig(plot_path, dpi=180)
+        plt.close(fig)
+        feature_plot_paths.append(plot_path)
+
+    feature_summary_df = pd.DataFrame(feature_rows)
+    feature_summary_df.to_csv(REPORT_FEATURE_IMPORTANCE_SUMMARY_PATH, index=False)
+
+    residual_rows: list[dict[str, object]] = []
+    residual_plot_paths: list[Path] = []
+    best_model_rows = metrics_df.sort_values(["target", "r2"], ascending=[True, False]).groupby("target", as_index=False).first()
+    for row in best_model_rows.itertuples():
+        pred = pd.read_csv(OUTPUT_DIR / row.prediction_file).copy()
+        for region, part in pred.groupby("region"):
+            residual_rows.append(
+                {
+                    "target": row.target,
+                    "model_label": row.model_label,
+                    "region": region,
+                    "n": int(len(part)),
+                    "mean_residual": float(part["residual"].mean()),
+                    "median_residual": float(part["residual"].median()),
+                    "rmse": float(np.sqrt(np.mean(np.square(part["residual"])))),
+                    "mae": float(np.mean(np.abs(part["residual"]))),
+                }
+            )
+        fig, ax = plt.subplots(figsize=(8.5, 5.5))
+        order = sorted(pred["region"].unique())
+        data = [pred.loc[pred["region"] == region, "residual"].to_numpy() for region in order]
+        ax.boxplot(data, tick_labels=order, vert=True)
+        ax.axhline(0.0, color="black", linestyle="--", linewidth=1)
+        ax.set_title(f"Residuals by region: {row.target} ({row.model_label})")
+        ax.set_ylabel("Residual (predicted - actual)")
+        ax.tick_params(axis="x", rotation=0)
+        fig.tight_layout()
+        plot_path = OUTPUT_DIR / f"project_report_residual_boxplot_{row.target}.png"
+        fig.savefig(plot_path, dpi=180)
+        plt.close(fig)
+        residual_plot_paths.append(plot_path)
+
+    residual_summary_df = pd.DataFrame(residual_rows).sort_values(["target", "mae"], ascending=[True, False])
+    residual_summary_df.to_csv(REPORT_RESIDUAL_REGION_SUMMARY_PATH, index=False)
+
+    diff_rows = polarization_df[polarization_df["target"] == "S1_VV_div_VH"].copy()
+    direct_row = diff_rows[diff_rows["model_name"] == "ridge_polarization_difference"].sort_values("r2", ascending=False).iloc[0]
+    struct_row = diff_rows[diff_rows["model_name"] == "ridge_structural_polarization_difference"].sort_values("r2", ascending=False).iloc[0]
+    best_diff_row = diff_rows.sort_values("r2", ascending=False).iloc[0]
+    diff_pred = pd.read_csv(OUTPUT_DIR / best_diff_row["prediction_file"]).copy()
+    diff_pred["abs_residual"] = diff_pred["residual"].abs()
+
+    failure_region = (
+        diff_pred.groupby("region", as_index=False)
+        .agg(n=("actual", "size"), mae=("abs_residual", "mean"), bias=("residual", "mean"), rmse=("residual", lambda s: float(np.sqrt(np.mean(np.square(s))))))
+        .sort_values("mae", ascending=False)
+    )
+    failure_land_use = (
+        diff_pred.groupby("dw_label_name", as_index=False)
+        .agg(n=("actual", "size"), mae=("abs_residual", "mean"), bias=("residual", "mean"), rmse=("residual", lambda s: float(np.sqrt(np.mean(np.square(s))))))
+        .sort_values("mae", ascending=False)
+    )
+    value_bins = pd.qcut(diff_pred["actual"], q=5, duplicates="drop")
+    failure_value_bin = (
+        diff_pred.assign(actual_bin=value_bins.astype(str))
+        .groupby("actual_bin", as_index=False)
+        .agg(n=("actual", "size"), mae=("abs_residual", "mean"), bias=("residual", "mean"), rmse=("residual", lambda s: float(np.sqrt(np.mean(np.square(s))))))
+    )
+    outliers = diff_pred.sort_values("abs_residual", ascending=False).head(15).copy()
+    outliers.insert(0, "outlier_rank", np.arange(1, len(outliers) + 1))
+
+    failure_region.to_csv(REPORT_POLARIZATION_FAILURE_REGION_PATH, index=False)
+    failure_land_use.to_csv(REPORT_POLARIZATION_FAILURE_LAND_USE_PATH, index=False)
+    failure_value_bin.to_csv(REPORT_POLARIZATION_FAILURE_VALUE_BIN_PATH, index=False)
+    outliers.to_csv(REPORT_POLARIZATION_OUTLIERS_PATH, index=False)
+
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.8))
+    axes[0].barh(failure_region["region"], failure_region["mae"], color="#93c5fd", edgecolor="#1d4ed8")
+    axes[0].set_title("S1_VV_div_VH error by region")
+    axes[0].set_xlabel("MAE")
+    axes[0].grid(axis="x", alpha=0.25)
+    axes[1].barh(failure_land_use["dw_label_name"], failure_land_use["mae"], color="#fdba74", edgecolor="#c2410c")
+    axes[1].set_title("S1_VV_div_VH error by land cover")
+    axes[1].set_xlabel("MAE")
+    axes[1].grid(axis="x", alpha=0.25)
+    fig.tight_layout()
+    failure_plot_path = OUTPUT_DIR / "project_report_polarization_failure_summary.png"
+    fig.savefig(failure_plot_path, dpi=180)
+    plt.close(fig)
+
+    fig, ax = plt.subplots(figsize=(8.5, 5.0))
+    ax.plot(failure_value_bin["actual_bin"], failure_value_bin["mae"], marker="o", color="#7c3aed")
+    ax.set_title("S1_VV_div_VH error by true-value quintile")
+    ax.set_ylabel("MAE")
+    ax.set_xlabel("True S1_VV_div_VH bin")
+    ax.tick_params(axis="x", rotation=20)
+    ax.grid(axis="y", alpha=0.25)
+    fig.tight_layout()
+    value_bin_plot_path = OUTPUT_DIR / "project_report_polarization_error_by_value_bin.png"
+    fig.savefig(value_bin_plot_path, dpi=180)
+    plt.close(fig)
+
+    direct_pred = pd.read_csv(OUTPUT_DIR / direct_row["prediction_file"]).copy()
+    struct_pred = pd.read_csv(OUTPUT_DIR / struct_row["prediction_file"]).copy()
+    combined_min = min(direct_pred["actual"].min(), direct_pred["predicted"].min(), struct_pred["predicted"].min())
+    combined_max = max(direct_pred["actual"].max(), direct_pred["predicted"].max(), struct_pred["predicted"].max())
+    fig, axes = plt.subplots(1, 2, figsize=(11, 5))
+    scatter_specs = [
+        (axes[0], direct_pred, direct_row["model_label"], "#2563eb"),
+        (axes[1], struct_pred, struct_row["model_label"], "#059669"),
+    ]
+    for ax, frame, title, color in scatter_specs:
+        ax.scatter(frame["actual"], frame["predicted"], alpha=0.6, edgecolor="none", color=color)
+        ax.plot([combined_min, combined_max], [combined_min, combined_max], linestyle="--", color="black", linewidth=1)
+        ax.set_xlim(combined_min, combined_max)
+        ax.set_ylim(combined_min, combined_max)
+        ax.set_title(title)
+        ax.set_xlabel("True S1_VV_div_VH")
+        ax.set_ylabel("Predicted S1_VV_div_VH")
+        ax.grid(alpha=0.2)
+    fig.suptitle("Direct vs structural polarization-difference prediction")
+    fig.tight_layout(rect=[0, 0, 1, 0.94])
+    comparison_plot_path = OUTPUT_DIR / "project_report_polarization_direct_vs_structural.png"
+    fig.savefig(comparison_plot_path, dpi=180)
+    plt.close(fig)
+
+    return {
+        "feature_summary": feature_summary_df,
+        "feature_plot_paths": feature_plot_paths,
+        "residual_summary": residual_summary_df,
+        "residual_plot_paths": residual_plot_paths,
+        "failure_region": failure_region,
+        "failure_land_use": failure_land_use,
+        "failure_value_bin": failure_value_bin,
+        "failure_outliers": outliers,
+        "failure_plot_path": failure_plot_path,
+        "value_bin_plot_path": value_bin_plot_path,
+        "comparison_plot_path": comparison_plot_path,
+        "best_diff_row": best_diff_row,
+        "direct_row": direct_row,
+        "struct_row": struct_row,
+    }
+
+
 def knn_overlap_baseline(n_queries: int, k: int) -> float:
     if n_queries <= 1:
         return 0.0
@@ -361,6 +572,113 @@ def build_polarization_difference_lines(polarization_df: pd.DataFrame) -> list[s
         "- The structural baseline tests whether separate VV and VH Ridge models preserve the difference after subtraction.",
     ]
     return lines
+
+
+def build_project_interpretation_lines(
+    metrics_df: pd.DataFrame,
+    polarization_df: pd.DataFrame,
+) -> list[str]:
+    best_vv = metrics_df[metrics_df["target"] == "S1_VV"].sort_values("r2", ascending=False).iloc[0]
+    best_vh = metrics_df[metrics_df["target"] == "S1_VH"].sort_values("r2", ascending=False).iloc[0]
+    diff_rows = polarization_df[polarization_df["target"] == "S1_VV_div_VH"].copy()
+    best_diff = diff_rows.sort_values("r2", ascending=False).iloc[0]
+    best_direct = diff_rows[diff_rows["model_name"] == "ridge_polarization_difference"].sort_values("r2", ascending=False).iloc[0]
+    best_struct = diff_rows[diff_rows["model_name"] == "ridge_structural_polarization_difference"].sort_values("r2", ascending=False).iloc[0]
+    best_lightgbm = diff_rows[diff_rows["model_name"] == "lightgbm_polarization_difference"].sort_values("r2", ascending=False).iloc[0]
+
+    vv_gap = metrics_df[metrics_df["target"] == "S1_VV"]["r2"].max() - metrics_df[metrics_df["target"] == "S1_VV"]["r2"].min()
+    vh_gap = metrics_df[metrics_df["target"] == "S1_VH"]["r2"].max() - metrics_df[metrics_df["target"] == "S1_VH"]["r2"].min()
+    diff_gap = diff_rows["r2"].max() - diff_rows["r2"].min()
+
+    return [
+        "Interpretation and Results Discussion",
+        "",
+        f"- The AlphaEarth embeddings are strongly predictive of absolute Sentinel-1 backscatter. The best held-out results reach R2={best_vv['r2']:.3f} for S1_VV and R2={best_vh['r2']:.3f} for S1_VH, which indicates that the representation captures substantial information about absolute scattering strength.",
+        f"- The polarization-derived target S1_VV_div_VH, defined here as the dB-space difference VV - VH, is materially harder. Its best held-out performance is R2={best_diff['r2']:.3f}, well below the channel-wise results for VV and VH.",
+        f"- Direct prediction of S1_VV_div_VH is nearly indistinguishable from the structural baseline VV_hat - VH_hat. The best direct Ridge result is R2={best_direct['r2']:.3f}, the structural Ridge baseline is R2={best_struct['r2']:.3f}, and the best LightGBM result is R2={best_lightgbm['r2']:.3f}. This suggests that the embeddings do not expose much additional polarization-contrast information beyond what is already recoverable through VV and VH separately.",
+        f"- The similarity between Ridge and LightGBM on S1_VV_div_VH, with an R2 spread of only {diff_gap:.3f} across the evaluated models, indicates that model complexity is not the dominant bottleneck for this target. The more plausible bottleneck is the information content of the features themselves.",
+        f"- Adding region and Dynamic World context produces only small gains relative to embeddings alone. The total held-out R2 spread across feature sets is {vv_gap:.3f} for S1_VV and {vh_gap:.3f} for S1_VH, which is consistent with those contextual variables being largely redundant with the embedding representation.",
+        "- This is a scientifically meaningful result rather than a negative outcome. The present evidence indicates that the AlphaEarth embeddings encode absolute scattering strength better than relative polarization structure, which is a useful characterization of what information the representation preserves.",
+    ]
+
+
+def build_feature_importance_lines(feature_summary: pd.DataFrame) -> list[str]:
+    lines = [
+        "Feature Importance Interpretation",
+        "",
+        "The LightGBM feature-importance analysis uses the best held-out LightGBM run for each main target and summarizes permutation importance.",
+        "",
+    ]
+    for target in TARGETS:
+        part = feature_summary[feature_summary["target"] == target].copy()
+        if part.empty:
+            continue
+        top = part.head(5)
+        share = top.iloc[0]
+        lines.append(
+            f"- {target}: top features are {', '.join(f'{row.feature} ({row.permutation_mean:.3f})' for row in top.itertuples())}."
+        )
+        lines.append(
+            f"  Positive importance share by family: embeddings={share['embedding_share_positive_importance']:.1%}, Dynamic World={share['dynamic_world_share_positive_importance']:.1%}, region={share['region_share_positive_importance']:.1%}."
+        )
+    lines.extend(
+        [
+            "",
+            "Interpretation:",
+            "- Embedding dimensions dominate the ranked importance lists, while region and Dynamic World features contribute comparatively little mass.",
+            "- This reinforces the earlier ablation result that contextual variables add only marginal incremental signal beyond the embedding itself.",
+        ]
+    )
+    return lines
+
+
+def build_residual_spatial_lines(residual_summary: pd.DataFrame) -> list[str]:
+    lines = [
+        "Residual Spatial Pattern Analysis",
+        "",
+    ]
+    for target in TARGETS:
+        part = residual_summary[residual_summary["target"] == target].copy()
+        if part.empty:
+            continue
+        worst = part.sort_values("mae", ascending=False).iloc[0]
+        most_positive = part.sort_values("mean_residual", ascending=False).iloc[0]
+        most_negative = part.sort_values("mean_residual", ascending=True).iloc[0]
+        lines.append(
+            f"- {target}: the largest regional error burden appears in {worst['region']} (MAE={worst['mae']:.3f}). The strongest positive bias appears in {most_positive['region']} (mean residual={most_positive['mean_residual']:.3f}) and the strongest negative bias appears in {most_negative['region']} (mean residual={most_negative['mean_residual']:.3f})."
+        )
+    lines.extend(
+        [
+            "",
+            "Interpretation:",
+            "- The residual patterns are region-dependent rather than completely uniform, but they do not indicate a single catastrophic geographic failure mode across all targets.",
+            "- This should be described as modest regional bias structure, not as evidence that the entire model is driven by geography alone.",
+        ]
+    )
+    return lines
+
+
+def build_polarization_failure_lines(
+    failure_region: pd.DataFrame,
+    failure_land_use: pd.DataFrame,
+    failure_value_bin: pd.DataFrame,
+    best_diff_row: pd.Series,
+) -> list[str]:
+    worst_region = failure_region.iloc[0]
+    worst_land_use = failure_land_use.iloc[0]
+    hardest_bin = failure_value_bin.sort_values("mae", ascending=False).iloc[0]
+    return [
+        "Polarization-difference Failure Analysis",
+        "",
+        f"- The failure analysis uses {best_diff_row['model_label']}, the best held-out predictor for S1_VV_div_VH.",
+        f"- The hardest region is {worst_region['region']} with MAE={worst_region['mae']:.3f} and bias={worst_region['bias']:.3f}.",
+        f"- The hardest Dynamic World class is {worst_land_use['dw_label_name']} with MAE={worst_land_use['mae']:.3f} and bias={worst_land_use['bias']:.3f}.",
+        f"- Error also varies with the true target magnitude. The hardest true-value quintile is {hardest_bin['actual_bin']} with MAE={hardest_bin['mae']:.3f}.",
+        "",
+        "Interpretation:",
+        "- The largest misses for S1_VV_div_VH are concentrated in specific regions and land-cover types rather than being purely random noise.",
+        "- Extreme or less typical polarization-difference regimes are harder to recover, which is consistent with the weaker overall performance on this derived target.",
+    ]
 
 
 def build_phase3_summary_lines(
@@ -988,6 +1306,14 @@ def build_project_report(inputs: dict[str, pd.DataFrame]) -> None:
         phase4_land_use[phase4_land_use["k"] == 10].sort_values("mean_overlap", ascending=False).head(5).copy(),
         ["mean_overlap", "median_overlap", "p10_overlap", "p90_overlap"],
     )
+    analysis_assets = build_report_analysis_assets(metrics_df, polarization_df)
+    feature_summary = analysis_assets["feature_summary"]
+    residual_summary = analysis_assets["residual_summary"]
+    failure_region = analysis_assets["failure_region"]
+    failure_land_use = analysis_assets["failure_land_use"]
+    failure_value_bin = analysis_assets["failure_value_bin"]
+    failure_outliers = analysis_assets["failure_outliers"]
+    best_diff_row = analysis_assets["best_diff_row"]
 
     with PdfPages(PROJECT_REPORT_PATH) as pdf:
         draw_text_page(
@@ -1002,6 +1328,11 @@ def build_project_report(inputs: dict[str, pd.DataFrame]) -> None:
                 polarization_df,
                 ratio_baselines,
             ),
+            pdf,
+        )
+        draw_text_page(
+            "Interpretation and Results Discussion",
+            build_project_interpretation_lines(metrics_df, polarization_df),
             pdf,
         )
         draw_text_page("Plan Alignment", build_project_plan_alignment_lines(), pdf)
@@ -1024,6 +1355,78 @@ def build_project_report(inputs: dict[str, pd.DataFrame]) -> None:
                 pdf,
                 footnote="This table compares direct VV-VH prediction, the structural VV_hat - VH_hat baseline, and the reused LightGBM VV-VH result.",
             )
+        draw_text_page(
+            "Feature Importance Interpretation",
+            build_feature_importance_lines(feature_summary),
+            pdf,
+        )
+        draw_dataframe_page(
+            "Top LightGBM Features",
+            format_float_columns(
+                feature_summary[["target", "feature_set", "feature", "feature_family", "permutation_mean"]].copy(),
+                ["permutation_mean"],
+            ).assign(feature_set=lambda df: df["feature_set"].map(FEATURE_LABELS)).reset_index(drop=True),
+            pdf,
+            footnote="Feature importance is based on the best held-out LightGBM model for each target. Feature family separates embedding dimensions from Dynamic World and region indicators.",
+        )
+        draw_image_grid_page(
+            "Feature Importance Visuals",
+            analysis_assets["feature_plot_paths"],
+            pdf,
+        )
+        draw_text_page(
+            "Residual Spatial Pattern Analysis",
+            build_residual_spatial_lines(residual_summary),
+            pdf,
+        )
+        draw_dataframe_page(
+            "Residual Bias By Region",
+            format_float_columns(
+                residual_summary[["target", "model_label", "region", "n", "mean_residual", "median_residual", "rmse", "mae"]].copy(),
+                ["mean_residual", "median_residual", "rmse", "mae"],
+            ).reset_index(drop=True),
+            pdf,
+            footnote="Residuals are computed from the best held-out model per target. Positive mean residual indicates overprediction.",
+        )
+        draw_image_grid_page(
+            "Residual Region Boxplots",
+            analysis_assets["residual_plot_paths"],
+            pdf,
+        )
+        draw_text_page(
+            "Polarization-difference Failure Analysis",
+            build_polarization_failure_lines(failure_region, failure_land_use, failure_value_bin, best_diff_row),
+            pdf,
+        )
+        draw_dataframe_page(
+            "S1_VV_div_VH Failure Summary",
+            format_float_columns(
+                failure_land_use[["dw_label_name", "n", "mae", "bias", "rmse"]].copy(),
+                ["mae", "bias", "rmse"],
+            ).reset_index(drop=True),
+            pdf,
+            footnote="S1_VV_div_VH is the stored dB-space polarization difference VV - VH. The table shows held-out error by land-cover class for the best polarization-difference model.",
+        )
+        draw_dataframe_page(
+            "S1_VV_div_VH Outlier Catalog",
+            format_float_columns(
+                failure_outliers[
+                    ["outlier_rank", "region", "dw_label_name", "latitude", "longitude", "actual", "predicted", "residual", "abs_residual"]
+                ].copy(),
+                ["latitude", "longitude", "actual", "predicted", "residual", "abs_residual"],
+            ).reset_index(drop=True),
+            pdf,
+            footnote="These are the largest held-out absolute errors for the best S1_VV_div_VH model.",
+        )
+        draw_image_grid_page(
+            "Polarization Failure Visuals",
+            [
+                analysis_assets["failure_plot_path"],
+                analysis_assets["value_bin_plot_path"],
+                analysis_assets["comparison_plot_path"],
+            ],
+            pdf,
+        )
         draw_dataframe_page(
             "Top S1_VV Failure Modes",
             project_land_use[["dw_label_name", "mae", "rmse", "bias", "p90_abs_error", "n"]].reset_index(drop=True),

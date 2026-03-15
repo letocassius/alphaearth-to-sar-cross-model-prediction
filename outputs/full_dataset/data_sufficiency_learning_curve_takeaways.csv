@@ -1,0 +1,4 @@
+target,best_feature_set,best_model,best_valid_r2,tail_gain_80_to_100,best_cv_r2_std,assessment
+S1_VV,embedding_plus_context,lightgbm,0.9015034790509713,0.007362315893355564,0.011734600431161023,Curve is near plateau
+S1_VH,embedding_plus_context,lightgbm,0.9430943540349549,0.0042868727567668685,0.0038488550657719183,Curve is near plateau
+S1_VV_div_VH,embedding_plus_context,ridge,0.7081024061114064,0.003235352143467818,0.027341089360013886,Curve is near plateau
