@@ -40,6 +40,7 @@ STABILITY_PATH = OUTPUT_DIR / "full_dataset_lightgbm_stability.csv"
 REGIONAL_PATH = OUTPUT_DIR / "full_dataset_lightgbm_regional_metrics.csv"
 LAND_USE_PATH = OUTPUT_DIR / "full_dataset_lightgbm_land_use_metrics.csv"
 POLARIZATION_DIFF_METRICS_PATH = OUTPUT_DIR / "full_dataset_polarization_difference_metrics.csv"
+POLARIZATION_STRATEGY_COMPARISON_PATH = OUTPUT_DIR / "polarization_difference_strategy_comparison.csv"
 RATIO_BASELINE_METRICS_PATH = OUTPUT_DIR / "full_dataset_ratio_baseline_metrics.csv"
 RATIO_BASELINE_REGIONAL_PATH = OUTPUT_DIR / "full_dataset_ratio_baseline_regional_metrics.csv"
 RATIO_BASELINE_LAND_USE_PATH = OUTPUT_DIR / "full_dataset_ratio_baseline_land_use_metrics.csv"
@@ -141,7 +142,12 @@ def draw_image_grid_page(title: str, image_paths: list[Path], pdf: PdfPages) -> 
     fig.suptitle(title, fontsize=20, fontweight="bold")
     flat_axes = axes.flatten()
     for ax, image_path in zip(flat_axes, image_paths):
-        ax.imshow(mpimg.imread(image_path))
+        if image_path.exists():
+            ax.imshow(mpimg.imread(image_path))
+        else:
+            ax.axis("off")
+            ax.text(0.5, 0.55, "Image unavailable", ha="center", va="center", fontsize=15, fontweight="bold")
+            ax.text(0.5, 0.40, image_path.name, ha="center", va="center", fontsize=9)
         ax.set_title(image_path.stem.replace("_", " "), fontsize=10)
         ax.axis("off")
     for ax in flat_axes[len(image_paths):]:
@@ -194,6 +200,21 @@ def format_polarization_table(polarization_df: pd.DataFrame) -> pd.DataFrame:
     table["feature_set"] = table["feature_set"].map(FEATURE_LABELS)
     table = format_float_columns(table, ["r2", "rmse", "mae", "pearson_r"])
     return table[["feature_set", "model_label", "target", "training_target", "r2", "rmse", "mae", "pearson_r"]]
+
+
+def format_polarization_strategy_table(strategy_df: pd.DataFrame) -> pd.DataFrame:
+    if strategy_df.empty:
+        return strategy_df
+    table = strategy_df.copy()
+    table["feature_set"] = table["feature_set"].map(FEATURE_LABELS)
+    table["approach"] = table["approach"].map(
+        {
+            "direct_prediction": "Direct LightGBM VV-VH",
+            "structural_prediction": "Structural VV_hat - VH_hat",
+        }
+    )
+    table = format_float_columns(table, ["r2", "rmse", "mae"])
+    return table[["feature_set", "approach", "r2", "rmse", "mae", "prediction_file"]]
 
 
 def wrap_line(text: object, width: int, preserve_indent: bool = False) -> str:
@@ -279,6 +300,7 @@ def classify_feature_family(feature_name: str) -> str:
 def build_report_analysis_assets(
     metrics_df: pd.DataFrame,
     polarization_df: pd.DataFrame,
+    polarization_strategy: pd.DataFrame | None = None,
 ) -> dict[str, object]:
     feature_rows: list[dict[str, object]] = []
     feature_plot_paths: list[Path] = []
@@ -430,14 +452,35 @@ def build_report_analysis_assets(
     fig.savefig(value_bin_plot_path, dpi=180)
     plt.close(fig)
 
-    direct_pred = pd.read_csv(OUTPUT_DIR / direct_row["prediction_file"]).copy()
-    struct_pred = pd.read_csv(OUTPUT_DIR / struct_row["prediction_file"]).copy()
+    if polarization_strategy is not None and not polarization_strategy.empty:
+        best_direct_strategy = (
+            polarization_strategy[polarization_strategy["approach"] == "direct_prediction"]
+            .sort_values("r2", ascending=False)
+            .iloc[0]
+        )
+        matched_struct_strategy = polarization_strategy[
+            (polarization_strategy["approach"] == "structural_prediction")
+            & (polarization_strategy["feature_set"] == best_direct_strategy["feature_set"])
+        ].iloc[0]
+        direct_pred = pd.read_csv(OUTPUT_DIR / best_direct_strategy["prediction_file"]).copy()
+        struct_pred = pd.read_csv(OUTPUT_DIR / matched_struct_strategy["prediction_file"]).copy()
+        direct_plot_title = (
+            f"Direct LightGBM VV-VH ({FEATURE_LABELS[best_direct_strategy['feature_set']]})"
+        )
+        struct_plot_title = (
+            f"VV_hat - VH_hat ({FEATURE_LABELS[matched_struct_strategy['feature_set']]})"
+        )
+    else:
+        direct_pred = pd.read_csv(OUTPUT_DIR / direct_row["prediction_file"]).copy()
+        struct_pred = pd.read_csv(OUTPUT_DIR / struct_row["prediction_file"]).copy()
+        direct_plot_title = direct_row["model_label"]
+        struct_plot_title = struct_row["model_label"]
     combined_min = min(direct_pred["actual"].min(), direct_pred["predicted"].min(), struct_pred["predicted"].min())
     combined_max = max(direct_pred["actual"].max(), direct_pred["predicted"].max(), struct_pred["predicted"].max())
     fig, axes = plt.subplots(1, 2, figsize=(11, 5))
     scatter_specs = [
-        (axes[0], direct_pred, direct_row["model_label"], "#2563eb"),
-        (axes[1], struct_pred, struct_row["model_label"], "#059669"),
+        (axes[0], direct_pred, direct_plot_title, "#2563eb"),
+        (axes[1], struct_pred, struct_plot_title, "#059669"),
     ]
     for ax, frame, title, color in scatter_specs:
         ax.scatter(frame["actual"], frame["predicted"], alpha=0.6, edgecolor="none", color=color)
@@ -481,6 +524,7 @@ def knn_overlap_baseline(n_queries: int, k: int) -> float:
 def build_phase2_summary_lines(
     metrics_df: pd.DataFrame,
     stability_df: pd.DataFrame,
+    polarization_strategy: pd.DataFrame | None = None,
     ratio_baselines: pd.DataFrame | None = None,
 ) -> list[str]:
     best_rows = metrics_df.loc[metrics_df.groupby("target")["r2"].idxmax()].sort_values("target")
@@ -515,6 +559,22 @@ def build_phase2_summary_lines(
             "- Important caveat: the outer holdout is stratified random within sampled regions, not spatially disjoint. Treat these as within-region generalization estimates rather than strict geographic transfer performance.",
         ]
     )
+    if polarization_strategy is not None and not polarization_strategy.empty:
+        direct_rows = polarization_strategy[polarization_strategy["approach"] == "direct_prediction"].sort_values("feature_set")
+        struct_rows = polarization_strategy[polarization_strategy["approach"] == "structural_prediction"].sort_values("feature_set")
+        merged = direct_rows.merge(struct_rows, on="feature_set", suffixes=("_direct", "_struct"))
+        lines.extend(
+            [
+                "",
+                "Direct vs structural VV-VH finding:",
+                "- Using the saved LightGBM predictions, direct prediction of the stored dB-space target S1_VV_div_VH beats the structural baseline VV_hat - VH_hat for both feature sets.",
+            ]
+        )
+        for row in merged.itertuples():
+            lines.append(
+                f"- {FEATURE_LABELS[row.feature_set]}: direct R2={row.r2_direct:.3f}, RMSE={row.rmse_direct:.3f}, MAE={row.mae_direct:.3f} "
+                f"vs structural R2={row.r2_struct:.3f}, RMSE={row.rmse_struct:.3f}, MAE={row.mae_struct:.3f}."
+            )
     if ratio_baselines is not None and not ratio_baselines.empty:
         best_ratio = ratio_baselines.sort_values("r2", ascending=False).iloc[0]
         best_direct_ridge = ratio_baselines[ratio_baselines["model_name"] == "ridge_direct_ratio"].sort_values("r2", ascending=False).iloc[0]
@@ -553,7 +613,10 @@ def build_ratio_baseline_lines(ratio_baselines: pd.DataFrame) -> list[str]:
     return lines
 
 
-def build_polarization_difference_lines(polarization_df: pd.DataFrame) -> list[str]:
+def build_polarization_difference_lines(
+    polarization_df: pd.DataFrame,
+    polarization_strategy: pd.DataFrame | None = None,
+) -> list[str]:
     diff_rows = polarization_df[polarization_df["target"] == "S1_VV_div_VH"].copy()
     best_direct = diff_rows[diff_rows["model_name"] == "ridge_polarization_difference"].sort_values("r2", ascending=False).iloc[0]
     best_lightgbm = diff_rows[diff_rows["model_name"] == "lightgbm_polarization_difference"].sort_values("r2", ascending=False).iloc[0]
@@ -571,12 +634,27 @@ def build_polarization_difference_lines(polarization_df: pd.DataFrame) -> list[s
         "- Direct VV-VH prediction tests whether the embedding captures polarization contrast as its own target.",
         "- The structural baseline tests whether separate VV and VH Ridge models preserve the difference after subtraction.",
     ]
+    if polarization_strategy is not None and not polarization_strategy.empty:
+        direct_rows = polarization_strategy[polarization_strategy["approach"] == "direct_prediction"].sort_values("feature_set")
+        struct_rows = polarization_strategy[polarization_strategy["approach"] == "structural_prediction"].sort_values("feature_set")
+        merged = direct_rows.merge(struct_rows, on="feature_set", suffixes=("_direct", "_struct"))
+        lines.extend(
+            [
+                "- A follow-up comparison using the saved LightGBM VV_hat and VH_hat predictions gives the same directional conclusion: direct VV-VH prediction remains better than reconstructing VV_hat - VH_hat.",
+            ]
+        )
+        for row in merged.itertuples():
+            lines.append(
+                f"- {FEATURE_LABELS[row.feature_set]} follow-up: direct R2={row.r2_direct:.3f}, RMSE={row.rmse_direct:.3f}, MAE={row.mae_direct:.3f}; "
+                f"structural R2={row.r2_struct:.3f}, RMSE={row.rmse_struct:.3f}, MAE={row.mae_struct:.3f}."
+            )
     return lines
 
 
 def build_project_interpretation_lines(
     metrics_df: pd.DataFrame,
     polarization_df: pd.DataFrame,
+    polarization_strategy: pd.DataFrame | None = None,
 ) -> list[str]:
     best_vv = metrics_df[metrics_df["target"] == "S1_VV"].sort_values("r2", ascending=False).iloc[0]
     best_vh = metrics_df[metrics_df["target"] == "S1_VH"].sort_values("r2", ascending=False).iloc[0]
@@ -590,16 +668,26 @@ def build_project_interpretation_lines(
     vh_gap = metrics_df[metrics_df["target"] == "S1_VH"]["r2"].max() - metrics_df[metrics_df["target"] == "S1_VH"]["r2"].min()
     diff_gap = diff_rows["r2"].max() - diff_rows["r2"].min()
 
-    return [
+    lines = [
         "Interpretation and Results Discussion",
         "",
         f"- The AlphaEarth embeddings are strongly predictive of absolute Sentinel-1 backscatter. The best held-out results reach R2={best_vv['r2']:.3f} for S1_VV and R2={best_vh['r2']:.3f} for S1_VH, which indicates that the representation captures substantial information about absolute scattering strength.",
         f"- The polarization-derived target S1_VV_div_VH, defined here as the dB-space difference VV - VH, is materially harder. Its best held-out performance is R2={best_diff['r2']:.3f}, well below the channel-wise results for VV and VH.",
-        f"- Direct prediction of S1_VV_div_VH is nearly indistinguishable from the structural baseline VV_hat - VH_hat. The best direct Ridge result is R2={best_direct['r2']:.3f}, the structural Ridge baseline is R2={best_struct['r2']:.3f}, and the best LightGBM result is R2={best_lightgbm['r2']:.3f}. This suggests that the embeddings do not expose much additional polarization-contrast information beyond what is already recoverable through VV and VH separately.",
+        f"- The earlier Ridge addendum already favored direct prediction over the structural baseline: direct Ridge reaches R2={best_direct['r2']:.3f}, the structural Ridge baseline reaches R2={best_struct['r2']:.3f}, and the best LightGBM direct result reaches R2={best_lightgbm['r2']:.3f}.",
         f"- The similarity between Ridge and LightGBM on S1_VV_div_VH, with an R2 spread of only {diff_gap:.3f} across the evaluated models, indicates that model complexity is not the dominant bottleneck for this target. The more plausible bottleneck is the information content of the features themselves.",
         f"- Adding region and Dynamic World context produces only small gains relative to embeddings alone. The total held-out R2 spread across feature sets is {vv_gap:.3f} for S1_VV and {vh_gap:.3f} for S1_VH, which is consistent with those contextual variables being largely redundant with the embedding representation.",
         "- This is a scientifically meaningful result rather than a negative outcome. The present evidence indicates that the AlphaEarth embeddings encode absolute scattering strength better than relative polarization structure, which is a useful characterization of what information the representation preserves.",
     ]
+    if polarization_strategy is not None and not polarization_strategy.empty:
+        direct_rows = polarization_strategy[polarization_strategy["approach"] == "direct_prediction"].sort_values("r2", ascending=False)
+        struct_rows = polarization_strategy[polarization_strategy["approach"] == "structural_prediction"].set_index("feature_set")
+        best_direct_strategy = direct_rows.iloc[0]
+        matched_struct = struct_rows.loc[best_direct_strategy["feature_set"]]
+        lines.insert(
+            4,
+            f"- A stricter apples-to-apples strategy comparison built from the saved LightGBM prediction files reaches the same conclusion: for {FEATURE_LABELS[best_direct_strategy['feature_set']]}, direct VV-VH prediction scores R2={best_direct_strategy['r2']:.3f}, RMSE={best_direct_strategy['rmse']:.3f}, MAE={best_direct_strategy['mae']:.3f} while VV_hat - VH_hat scores R2={matched_struct['r2']:.3f}, RMSE={matched_struct['rmse']:.3f}, MAE={matched_struct['mae']:.3f}. Direct prediction also stays ahead on the second feature ablation.",
+        )
+    return lines
 
 
 def build_feature_importance_lines(feature_summary: pd.DataFrame) -> list[str]:
@@ -734,6 +822,7 @@ def build_project_summary_lines(
     phase4_land_use: pd.DataFrame,
     phase4_corr: pd.DataFrame,
     polarization_df: pd.DataFrame | None = None,
+    polarization_strategy: pd.DataFrame | None = None,
     ratio_baselines: pd.DataFrame | None = None,
 ) -> list[str]:
     best_rows = phase2_metrics.loc[phase2_metrics.groupby("target")["r2"].idxmax()].sort_values("target")
@@ -795,6 +884,16 @@ def build_project_summary_lines(
                 "",
             ]
         )
+    if polarization_strategy is not None and not polarization_strategy.empty:
+        direct_rows = polarization_strategy[polarization_strategy["approach"] == "direct_prediction"].sort_values("feature_set")
+        struct_rows = polarization_strategy[polarization_strategy["approach"] == "structural_prediction"].sort_values("feature_set")
+        merged = direct_rows.merge(struct_rows, on="feature_set", suffixes=("_direct", "_struct"))
+        lines.append("- Follow-up strategy check from saved LightGBM predictions: direct VV-VH prediction outperforms VV_hat - VH_hat in both ablations.")
+        for row in merged.itertuples():
+            lines.append(
+                f"  {FEATURE_LABELS[row.feature_set]}: direct R2={row.r2_direct:.3f} vs structural R2={row.r2_struct:.3f}; "
+                f"RMSE {row.rmse_direct:.3f} vs {row.rmse_struct:.3f}; MAE {row.mae_direct:.3f} vs {row.mae_struct:.3f}."
+            )
     lines.extend(
         [
             "Phase 4 headline results:",
@@ -824,6 +923,7 @@ def build_project_results_first_lines(
     phase4_land_use: pd.DataFrame,
     phase4_corr: pd.DataFrame,
     polarization_df: pd.DataFrame | None = None,
+    polarization_strategy: pd.DataFrame | None = None,
     ratio_baselines: pd.DataFrame | None = None,
 ) -> list[str]:
     overall_corr = phase4_corr[phase4_corr["scope"] == "overall"].iloc[0]
@@ -885,6 +985,22 @@ def build_project_results_first_lines(
         )
         for item in diff_runs:
             lines.append("  " + format_model_run(*item))
+    if polarization_strategy is not None and not polarization_strategy.empty:
+        direct_rows = polarization_strategy[polarization_strategy["approach"] == "direct_prediction"].sort_values("feature_set")
+        struct_rows = polarization_strategy[polarization_strategy["approach"] == "structural_prediction"].sort_values("feature_set")
+        merged = direct_rows.merge(struct_rows, on="feature_set", suffixes=("_direct", "_struct"))
+        lines.extend(
+            [
+                "",
+                "Direct vs structural follow-up:",
+                "- Using the saved LightGBM prediction files, direct VV-VH prediction beats VV_hat - VH_hat on both feature ablations.",
+            ]
+        )
+        for row in merged.itertuples():
+            lines.append(
+                f"  {FEATURE_LABELS[row.feature_set]}: direct R2={row.r2_direct:.3f}, RMSE={row.rmse_direct:.3f}, MAE={row.mae_direct:.3f}; "
+                f"structural R2={row.r2_struct:.3f}, RMSE={row.rmse_struct:.3f}, MAE={row.mae_struct:.3f}."
+            )
     if ratio_baselines is not None and not ratio_baselines.empty:
         best_ratio = ratio_baselines.sort_values("r2", ascending=False).iloc[0]
         lines.append(f"- Derived linear VV/VH benchmark: {best_ratio['model_label']} is strongest at R2={best_ratio['r2']:.3f}.")
@@ -1041,6 +1157,9 @@ def load_report_inputs() -> dict[str, pd.DataFrame]:
         "regional": pd.read_csv(REGIONAL_PATH),
         "land_use": pd.read_csv(LAND_USE_PATH),
         "polarization": pd.read_csv(POLARIZATION_DIFF_METRICS_PATH) if POLARIZATION_DIFF_METRICS_PATH.exists() else pd.DataFrame(),
+        "polarization_strategy": (
+            pd.read_csv(POLARIZATION_STRATEGY_COMPARISON_PATH) if POLARIZATION_STRATEGY_COMPARISON_PATH.exists() else pd.DataFrame()
+        ),
         "ratio_baselines": pd.read_csv(RATIO_BASELINE_METRICS_PATH) if RATIO_BASELINE_METRICS_PATH.exists() else pd.DataFrame(),
         "ratio_baseline_regional": (
             pd.read_csv(RATIO_BASELINE_REGIONAL_PATH) if RATIO_BASELINE_REGIONAL_PATH.exists() else pd.DataFrame()
@@ -1067,6 +1186,7 @@ def build_phase2_report(inputs: dict[str, pd.DataFrame]) -> None:
     regional_df = inputs["regional"]
     land_use_df = inputs["land_use"]
     polarization_df = inputs["polarization"]
+    polarization_strategy = inputs["polarization_strategy"]
     ratio_baselines = inputs["ratio_baselines"]
 
     stability_summary = (
@@ -1087,7 +1207,11 @@ def build_phase2_report(inputs: dict[str, pd.DataFrame]) -> None:
     land_use_vv = format_float_columns(land_use_vv, ["r2", "rmse", "mae", "pearson_r"])
 
     with PdfPages(PHASE2_REPORT_PATH) as pdf:
-        draw_text_page("Phase 2 Modeling Summary", build_phase2_summary_lines(metrics_df, stability_df, ratio_baselines), pdf)
+        draw_text_page(
+            "Phase 2 Modeling Summary",
+            build_phase2_summary_lines(metrics_df, stability_df, polarization_strategy, ratio_baselines),
+            pdf,
+        )
         draw_dataframe_page(
             "Held-out Performance by Feature Set",
             format_metrics_table(metrics_df),
@@ -1095,12 +1219,23 @@ def build_phase2_report(inputs: dict[str, pd.DataFrame]) -> None:
             footnote="The holdout test set is shared across the two feature-set ablations. It is a stratified random holdout within sampled regions rather than a spatially disjoint holdout, so these estimates may be optimistic relative to stricter geographic transfer tests.",
         )
         if not polarization_df.empty:
-            draw_text_page("Polarization Difference Experiments", build_polarization_difference_lines(polarization_df), pdf)
+            draw_text_page(
+                "Polarization Difference Experiments",
+                build_polarization_difference_lines(polarization_df, polarization_strategy),
+                pdf,
+            )
             draw_dataframe_page(
                 "Polarization Difference Comparison",
                 format_polarization_table(polarization_df),
                 pdf,
                 footnote="The structural baseline subtracts Ridge VV and Ridge VH predictions and evaluates the result against the stored dB-space polarization difference target.",
+            )
+        if not polarization_strategy.empty:
+            draw_dataframe_page(
+                "Direct vs Structural Follow-up",
+                format_polarization_strategy_table(polarization_strategy),
+                pdf,
+                footnote="These rows are computed from the saved LightGBM test predictions: direct uses the saved S1_VV_div_VH predictions, while structural reconstructs VV_hat - VH_hat from the saved VV and VH prediction files.",
             )
         if not ratio_baselines.empty:
             draw_text_page("VV/VH Ratio Baselines", build_ratio_baseline_lines(ratio_baselines), pdf)
@@ -1279,6 +1414,7 @@ def build_phase4_report(inputs: dict[str, pd.DataFrame]) -> None:
 def build_project_report(inputs: dict[str, pd.DataFrame]) -> None:
     metrics_df = inputs["metrics"]
     polarization_df = inputs["polarization"]
+    polarization_strategy = inputs["polarization_strategy"]
     ratio_baselines = inputs["ratio_baselines"]
     phase3_land_use = inputs["phase3_land_use"]
     phase3_spatial = inputs["phase3_spatial"]
@@ -1306,7 +1442,7 @@ def build_project_report(inputs: dict[str, pd.DataFrame]) -> None:
         phase4_land_use[phase4_land_use["k"] == 10].sort_values("mean_overlap", ascending=False).head(5).copy(),
         ["mean_overlap", "median_overlap", "p10_overlap", "p90_overlap"],
     )
-    analysis_assets = build_report_analysis_assets(metrics_df, polarization_df)
+    analysis_assets = build_report_analysis_assets(metrics_df, polarization_df, polarization_strategy)
     feature_summary = analysis_assets["feature_summary"]
     residual_summary = analysis_assets["residual_summary"]
     failure_region = analysis_assets["failure_region"]
@@ -1326,13 +1462,14 @@ def build_project_report(inputs: dict[str, pd.DataFrame]) -> None:
                 phase4_land_use,
                 phase4_corr,
                 polarization_df,
+                polarization_strategy,
                 ratio_baselines,
             ),
             pdf,
         )
         draw_text_page(
             "Interpretation and Results Discussion",
-            build_project_interpretation_lines(metrics_df, polarization_df),
+            build_project_interpretation_lines(metrics_df, polarization_df, polarization_strategy),
             pdf,
         )
         draw_text_page("Plan Alignment", build_project_plan_alignment_lines(), pdf)
@@ -1354,6 +1491,13 @@ def build_project_report(inputs: dict[str, pd.DataFrame]) -> None:
                 format_polarization_table(polarization_df),
                 pdf,
                 footnote="This table compares direct VV-VH prediction, the structural VV_hat - VH_hat baseline, and the reused LightGBM VV-VH result.",
+            )
+        if not polarization_strategy.empty:
+            draw_dataframe_page(
+                "Direct vs Structural Follow-up",
+                format_polarization_strategy_table(polarization_strategy),
+                pdf,
+                footnote="This follow-up uses the saved LightGBM prediction files to compare direct S1_VV_div_VH prediction against the reconstructed structural baseline VV_hat - VH_hat on the same held-out rows.",
             )
         draw_text_page(
             "Feature Importance Interpretation",
