@@ -1,0 +1,73 @@
+feature_set,target,model_name,model_label,dw_label_name,r2,rmse,mae,pearson_r,n_test
+embedding_only,S1_VH,ridge_vh,Ridge (VH) [Embeddings only],bare,0.7416564881539266,1.1965839279033383,0.8780238190403948,0.8676296403292165,96
+embedding_only,S1_VH,ridge_vh,Ridge (VH) [Embeddings only],built,0.7476794080346145,1.7295151738766124,1.1090680582541068,0.870313395761699,96
+embedding_only,S1_VH,ridge_vh,Ridge (VH) [Embeddings only],crops,0.8195211385451524,1.1287202195902033,0.8503366765702535,0.9066692639742826,96
+embedding_only,S1_VH,ridge_vh,Ridge (VH) [Embeddings only],flooded_vegetation,0.9342939960942933,0.8617303772675177,0.6903106253084909,0.9709923463210579,96
+embedding_only,S1_VH,ridge_vh,Ridge (VH) [Embeddings only],grass,0.9032173398567322,1.022118591846943,0.7767614338730678,0.9525030525730623,96
+embedding_only,S1_VH,ridge_vh,Ridge (VH) [Embeddings only],shrub_and_scrub,0.7735221961468515,1.5328327842556808,0.9887476881069039,0.8816555609932702,96
+embedding_only,S1_VH,ridge_vh,Ridge (VH) [Embeddings only],snow_and_ice,0.8932539650562127,1.0993676328041162,0.8713777540592297,0.9465480732859113,96
+embedding_only,S1_VH,ridge_vh,Ridge (VH) [Embeddings only],trees,0.7293544338510092,1.3004395657215253,0.9932933480594887,0.8593029557577427,96
+embedding_only,S1_VH,ridge_vh,Ridge (VH) [Embeddings only],water,0.8746208652272773,1.693314504154255,1.349085214456851,0.9381382053447677,96
+embedding_only,S1_VV,ridge_vv,Ridge (VV) [Embeddings only],bare,0.41854187722345704,1.6519240785374496,1.0452817252037014,0.6935542980377395,96
+embedding_only,S1_VV,ridge_vv,Ridge (VV) [Embeddings only],built,0.7069947421211938,2.2032101282378425,1.2042744752017194,0.8658133720689427,96
+embedding_only,S1_VV,ridge_vv,Ridge (VV) [Embeddings only],crops,0.664244206292943,1.2131277390831479,0.8684739743882129,0.8191656788208859,96
+embedding_only,S1_VV,ridge_vv,Ridge (VV) [Embeddings only],flooded_vegetation,0.9110882794172543,0.8393657207729315,0.6239070952227902,0.9608803744529532,96
+embedding_only,S1_VV,ridge_vv,Ridge (VV) [Embeddings only],grass,0.7970949085044556,1.168571151926727,0.8548099500939706,0.8932996319999857,96
+embedding_only,S1_VV,ridge_vv,Ridge (VV) [Embeddings only],shrub_and_scrub,0.6417102695969379,1.7468361800989838,1.046287165975939,0.8047448087490336,96
+embedding_only,S1_VV,ridge_vv,Ridge (VV) [Embeddings only],snow_and_ice,0.9005384623163659,1.0018902612441924,0.7558113100923259,0.9504785953784112,96
+embedding_only,S1_VV,ridge_vv,Ridge (VV) [Embeddings only],trees,0.7302979662699034,1.2453061146431192,0.9125810352194915,0.8551967562128511,96
+embedding_only,S1_VV,ridge_vv,Ridge (VV) [Embeddings only],water,0.8348654748576527,1.5334947062960924,1.1263180250681362,0.9347690016144266,96
+embedding_only,S1_VV_div_VH,ridge_polarization_difference,Ridge (VV-VH) [Embeddings only],bare,0.4580607706541605,1.1453844463905245,0.8372996477171698,0.6787960153851186,96
+embedding_only,S1_VV_div_VH,ridge_polarization_difference,Ridge (VV-VH) [Embeddings only],built,0.6229408214726657,1.5472703672767063,0.9604521701316618,0.8170604036284943,96
+embedding_only,S1_VV_div_VH,ridge_polarization_difference,Ridge (VV-VH) [Embeddings only],crops,0.6246443220286633,0.8956638683060238,0.6987666390137054,0.7946906690069919,96
+embedding_only,S1_VV_div_VH,ridge_polarization_difference,Ridge (VV-VH) [Embeddings only],flooded_vegetation,0.6509560521835254,0.8364556314163714,0.6025100133335507,0.8124001925084283,96
+embedding_only,S1_VV_div_VH,ridge_polarization_difference,Ridge (VV-VH) [Embeddings only],grass,0.6478715898757477,0.955209311591033,0.7444217109334956,0.810348860447313,96
+embedding_only,S1_VV_div_VH,ridge_polarization_difference,Ridge (VV-VH) [Embeddings only],shrub_and_scrub,0.34476184802052756,0.9559383774403379,0.7796073847959274,0.6232443012851595,96
+embedding_only,S1_VV_div_VH,ridge_polarization_difference,Ridge (VV-VH) [Embeddings only],snow_and_ice,0.627102476808522,1.085118997913055,0.7701179542288905,0.8041279811203866,96
+embedding_only,S1_VV_div_VH,ridge_polarization_difference,Ridge (VV-VH) [Embeddings only],trees,0.3296605782270646,0.6135033910048286,0.4824616889748921,0.65815637665337,96
+embedding_only,S1_VV_div_VH,ridge_polarization_difference,Ridge (VV-VH) [Embeddings only],water,0.6301398967230121,1.7477305834747097,1.337644456547278,0.8052260347620536,96
+embedding_only,S1_VV_div_VH,ridge_structural_polarization_difference,Structural baseline (VV_hat - VH_hat) [Embeddings only],bare,0.4580607706541605,1.1453844463905245,0.8372996477171707,0.6787960153851184,96
+embedding_only,S1_VV_div_VH,ridge_structural_polarization_difference,Structural baseline (VV_hat - VH_hat) [Embeddings only],built,0.6229408214726655,1.5472703672767065,0.9604521701316612,0.817060403628494,96
+embedding_only,S1_VV_div_VH,ridge_structural_polarization_difference,Structural baseline (VV_hat - VH_hat) [Embeddings only],crops,0.6246443220286624,0.8956638683060248,0.6987666390137065,0.7946906690069911,96
+embedding_only,S1_VV_div_VH,ridge_structural_polarization_difference,Structural baseline (VV_hat - VH_hat) [Embeddings only],flooded_vegetation,0.6509560521835264,0.8364556314163701,0.60251001333355,0.8124001925084288,96
+embedding_only,S1_VV_div_VH,ridge_structural_polarization_difference,Structural baseline (VV_hat - VH_hat) [Embeddings only],grass,0.6478715898757479,0.9552093115910326,0.7444217109334955,0.810348860447313,96
+embedding_only,S1_VV_div_VH,ridge_structural_polarization_difference,Structural baseline (VV_hat - VH_hat) [Embeddings only],shrub_and_scrub,0.34476184802052656,0.9559383774403387,0.7796073847959276,0.6232443012851594,96
+embedding_only,S1_VV_div_VH,ridge_structural_polarization_difference,Structural baseline (VV_hat - VH_hat) [Embeddings only],snow_and_ice,0.6271024768085223,1.0851189979130547,0.7701179542288913,0.8041279811203863,96
+embedding_only,S1_VV_div_VH,ridge_structural_polarization_difference,Structural baseline (VV_hat - VH_hat) [Embeddings only],trees,0.32966057822706407,0.6135033910048289,0.4824616889748918,0.6581563766533697,96
+embedding_only,S1_VV_div_VH,ridge_structural_polarization_difference,Structural baseline (VV_hat - VH_hat) [Embeddings only],water,0.6301398967230118,1.74773058347471,1.337644456547278,0.8052260347620537,96
+embedding_plus_context,S1_VH,ridge_vh,Ridge (VH) [Embeddings + region + Dynamic World],bare,0.7643458285210568,1.14283084041665,0.8655127745674216,0.874867012823104,96
+embedding_plus_context,S1_VH,ridge_vh,Ridge (VH) [Embeddings + region + Dynamic World],built,0.7748818668748159,1.6336283760526635,1.0722454493444677,0.8881519057175087,96
+embedding_plus_context,S1_VH,ridge_vh,Ridge (VH) [Embeddings + region + Dynamic World],crops,0.8389501046011206,1.0662360378221394,0.82958310176537,0.9170822724760932,96
+embedding_plus_context,S1_VH,ridge_vh,Ridge (VH) [Embeddings + region + Dynamic World],flooded_vegetation,0.9386323313927009,0.8327961090313715,0.6250957119802544,0.9708680142886276,96
+embedding_plus_context,S1_VH,ridge_vh,Ridge (VH) [Embeddings + region + Dynamic World],grass,0.9027793322444669,1.02442887312034,0.7778217232552128,0.9520407707474273,96
+embedding_plus_context,S1_VH,ridge_vh,Ridge (VH) [Embeddings + region + Dynamic World],shrub_and_scrub,0.7651313923072671,1.560969597938418,1.0047595511879615,0.8765852126027442,96
+embedding_plus_context,S1_VH,ridge_vh,Ridge (VH) [Embeddings + region + Dynamic World],snow_and_ice,0.9005191864249851,1.0612965062222228,0.8387817763919466,0.9500227114699484,96
+embedding_plus_context,S1_VH,ridge_vh,Ridge (VH) [Embeddings + region + Dynamic World],trees,0.712731154197588,1.3397815127429022,1.0166545282364148,0.8522989289829075,96
+embedding_plus_context,S1_VH,ridge_vh,Ridge (VH) [Embeddings + region + Dynamic World],water,0.8535061482710702,1.8303523159553725,1.4645294927067205,0.9295886104172613,96
+embedding_plus_context,S1_VV,ridge_vv,Ridge (VV) [Embeddings + region + Dynamic World],bare,0.43519575637210905,1.6280953583940647,1.0435861320988613,0.6982136209242795,96
+embedding_plus_context,S1_VV,ridge_vv,Ridge (VV) [Embeddings + region + Dynamic World],built,0.7309080431358558,2.1113905381634948,1.1659913317717059,0.8792762613556961,96
+embedding_plus_context,S1_VV,ridge_vv,Ridge (VV) [Embeddings + region + Dynamic World],crops,0.6792436580938473,1.1857206994243508,0.8539012678901127,0.8279243122258667,96
+embedding_plus_context,S1_VV,ridge_vv,Ridge (VV) [Embeddings + region + Dynamic World],flooded_vegetation,0.920412417393883,0.7941350754359588,0.5986925028354602,0.9617722066640264,96
+embedding_plus_context,S1_VV,ridge_vv,Ridge (VV) [Embeddings + region + Dynamic World],grass,0.7906396041171349,1.1870143078226554,0.8746562733572224,0.8894070920487663,96
+embedding_plus_context,S1_VV,ridge_vv,Ridge (VV) [Embeddings + region + Dynamic World],shrub_and_scrub,0.6340307284001427,1.7654576700803222,1.0446637804431336,0.8011936737529015,96
+embedding_plus_context,S1_VV,ridge_vv,Ridge (VV) [Embeddings + region + Dynamic World],snow_and_ice,0.9105265839194191,0.9502537234481161,0.7090820406399665,0.9552202669255766,96
+embedding_plus_context,S1_VV,ridge_vv,Ridge (VV) [Embeddings + region + Dynamic World],trees,0.7189382031794057,1.2712615715390547,0.9446710405116768,0.8488629578306206,96
+embedding_plus_context,S1_VV,ridge_vv,Ridge (VV) [Embeddings + region + Dynamic World],water,0.8181791859095746,1.6091077965976233,1.1682777173640073,0.9285154843742609,96
+embedding_plus_context,S1_VV_div_VH,ridge_polarization_difference,Ridge (VV-VH) [Embeddings + region + Dynamic World],bare,0.4556512551616808,1.14792786879814,0.8561641115901262,0.687289534152019,96
+embedding_plus_context,S1_VV_div_VH,ridge_polarization_difference,Ridge (VV-VH) [Embeddings + region + Dynamic World],built,0.6069886555891437,1.5796613525354624,0.9763572701474086,0.8145798451209176,96
+embedding_plus_context,S1_VV_div_VH,ridge_polarization_difference,Ridge (VV-VH) [Embeddings + region + Dynamic World],crops,0.62674062723385,0.8931592922558197,0.6962038111689751,0.7973934586959563,96
+embedding_plus_context,S1_VV_div_VH,ridge_polarization_difference,Ridge (VV-VH) [Embeddings + region + Dynamic World],flooded_vegetation,0.6488632686833284,0.8389594772313517,0.6153822050216448,0.8093547370609904,96
+embedding_plus_context,S1_VV_div_VH,ridge_polarization_difference,Ridge (VV-VH) [Embeddings + region + Dynamic World],grass,0.6473202373739152,0.9559568386773487,0.732733925751417,0.8099385085520882,96
+embedding_plus_context,S1_VV_div_VH,ridge_polarization_difference,Ridge (VV-VH) [Embeddings + region + Dynamic World],shrub_and_scrub,0.3158974555638484,0.976766849756877,0.7817395222996026,0.603670127363993,96
+embedding_plus_context,S1_VV_div_VH,ridge_polarization_difference,Ridge (VV-VH) [Embeddings + region + Dynamic World],snow_and_ice,0.6292050217731054,1.0820555066593638,0.7696786101942615,0.8114970374783359,96
+embedding_plus_context,S1_VV_div_VH,ridge_polarization_difference,Ridge (VV-VH) [Embeddings + region + Dynamic World],trees,0.33664675110986475,0.610298099551745,0.4749770675227178,0.6604879721176244,96
+embedding_plus_context,S1_VV_div_VH,ridge_polarization_difference,Ridge (VV-VH) [Embeddings + region + Dynamic World],water,0.6488966181792368,1.7028376699136378,1.306519172980432,0.8151211669360351,96
+embedding_plus_context,S1_VV_div_VH,ridge_structural_polarization_difference,Structural baseline (VV_hat - VH_hat) [Embeddings + region + Dynamic World],bare,0.4556512551616807,1.14792786879814,0.8561641115901265,0.6872895341520193,96
+embedding_plus_context,S1_VV_div_VH,ridge_structural_polarization_difference,Structural baseline (VV_hat - VH_hat) [Embeddings + region + Dynamic World],built,0.6069886555891433,1.5796613525354632,0.9763572701474086,0.8145798451209172,96
+embedding_plus_context,S1_VV_div_VH,ridge_structural_polarization_difference,Structural baseline (VV_hat - VH_hat) [Embeddings + region + Dynamic World],crops,0.6267406272338498,0.89315929225582,0.6962038111689753,0.7973934586959559,96
+embedding_plus_context,S1_VV_div_VH,ridge_structural_polarization_difference,Structural baseline (VV_hat - VH_hat) [Embeddings + region + Dynamic World],flooded_vegetation,0.6488632686833284,0.8389594772313517,0.615382205021645,0.8093547370609904,96
+embedding_plus_context,S1_VV_div_VH,ridge_structural_polarization_difference,Structural baseline (VV_hat - VH_hat) [Embeddings + region + Dynamic World],grass,0.6473202373739155,0.9559568386773483,0.7327339257514168,0.809938508552088,96
+embedding_plus_context,S1_VV_div_VH,ridge_structural_polarization_difference,Structural baseline (VV_hat - VH_hat) [Embeddings + region + Dynamic World],shrub_and_scrub,0.3158974555638482,0.9767668497568772,0.7817395222996026,0.6036701273639931,96
+embedding_plus_context,S1_VV_div_VH,ridge_structural_polarization_difference,Structural baseline (VV_hat - VH_hat) [Embeddings + region + Dynamic World],snow_and_ice,0.6292050217731058,1.0820555066593633,0.7696786101942613,0.8114970374783357,96
+embedding_plus_context,S1_VV_div_VH,ridge_structural_polarization_difference,Structural baseline (VV_hat - VH_hat) [Embeddings + region + Dynamic World],trees,0.3366467511098652,0.6102980995517446,0.47497706752271696,0.6604879721176242,96
+embedding_plus_context,S1_VV_div_VH,ridge_structural_polarization_difference,Structural baseline (VV_hat - VH_hat) [Embeddings + region + Dynamic World],water,0.6488966181792368,1.7028376699136378,1.3065191729804317,0.8151211669360352,96

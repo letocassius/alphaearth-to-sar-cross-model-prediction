@@ -1,0 +1,16 @@
+{
+  "learning_rate": 0.018826002986047252,
+  "num_leaves": 71,
+  "max_depth": 6,
+  "min_child_samples": 27,
+  "subsample": 0.8447411578889518,
+  "colsample_bytree": 0.569746930326021,
+  "reg_alpha": 0.002359277035307129,
+  "reg_lambda": 0.0067890532716984855,
+  "objective": "regression",
+  "metric": "rmse",
+  "n_estimators": 474,
+  "random_state": 42,
+  "n_jobs": 1,
+  "verbosity": -1
+}

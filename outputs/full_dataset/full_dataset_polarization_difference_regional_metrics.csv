@@ -1,0 +1,33 @@
+feature_set,target,model_name,model_label,region,r2,rmse,mae,pearson_r,n_test
+embedding_only,S1_VH,ridge_vh,Ridge (VH) [Embeddings only],amazon_forest,0.9462480505075302,1.1586493714548851,0.8785691114783705,0.9728321916571296,216
+embedding_only,S1_VH,ridge_vh,Ridge (VH) [Embeddings only],california_coast,0.9394862825489494,1.2476369285851854,0.9405663328507489,0.9713931024690885,216
+embedding_only,S1_VH,ridge_vh,Ridge (VH) [Embeddings only],iowa_ag,0.8808831571525106,1.1567819744422227,0.8791158298738347,0.9396274153056168,216
+embedding_only,S1_VH,ridge_vh,Ridge (VH) [Embeddings only],sf_bay_urban,0.9035893267832937,1.6421218142613827,1.08263966700984,0.9515327377239218,216
+embedding_only,S1_VV,ridge_vv,Ridge (VV) [Embeddings only],amazon_forest,0.9352978409034407,1.127776743683752,0.8044587619818839,0.9695112536137444,216
+embedding_only,S1_VV,ridge_vv,Ridge (VV) [Embeddings only],california_coast,0.8672602298363848,1.3443704426670888,0.9433045765853928,0.9323743601778253,216
+embedding_only,S1_VV,ridge_vv,Ridge (VV) [Embeddings only],iowa_ag,0.8448393969845882,1.3306537310891076,0.817373336219685,0.9243912661642206,216
+embedding_only,S1_VV,ridge_vv,Ridge (VV) [Embeddings only],sf_bay_urban,0.7952422746397219,1.9055717380502462,1.1849721058647213,0.892037497848074,216
+embedding_only,S1_VV_div_VH,ridge_polarization_difference,Ridge (VV-VH) [Embeddings only],amazon_forest,0.4367914874176071,1.0885972691166024,0.7692655304365462,0.6841452073454495,216
+embedding_only,S1_VV_div_VH,ridge_polarization_difference,Ridge (VV-VH) [Embeddings only],california_coast,0.8053678002153483,1.1000063590160218,0.8299032398916213,0.9045642980179143,216
+embedding_only,S1_VV_div_VH,ridge_polarization_difference,Ridge (VV-VH) [Embeddings only],iowa_ag,0.5449724515053582,1.205608763493568,0.7641941365552524,0.7656087794825033,216
+embedding_only,S1_VV_div_VH,ridge_polarization_difference,Ridge (VV-VH) [Embeddings only],sf_bay_urban,0.7118982140329245,1.1514742526573691,0.8425400556395005,0.8510594120828006,216
+embedding_only,S1_VV_div_VH,ridge_structural_polarization_difference,Structural baseline (VV_hat - VH_hat) [Embeddings only],amazon_forest,0.43679148741760687,1.0885972691166026,0.7692655304365469,0.6841452073454497,216
+embedding_only,S1_VV_div_VH,ridge_structural_polarization_difference,Structural baseline (VV_hat - VH_hat) [Embeddings only],california_coast,0.8053678002153482,1.1000063590160223,0.8299032398916221,0.9045642980179144,216
+embedding_only,S1_VV_div_VH,ridge_structural_polarization_difference,Structural baseline (VV_hat - VH_hat) [Embeddings only],iowa_ag,0.5449724515053582,1.205608763493568,0.7641941365552519,0.7656087794825027,216
+embedding_only,S1_VV_div_VH,ridge_structural_polarization_difference,Structural baseline (VV_hat - VH_hat) [Embeddings only],sf_bay_urban,0.7118982140329245,1.1514742526573691,0.8425400556395003,0.8510594120828008,216
+embedding_plus_context,S1_VH,ridge_vh,Ridge (VH) [Embeddings + region + Dynamic World],amazon_forest,0.9433609116951022,1.1893592304384464,0.9003605579539355,0.9714052439353168,216
+embedding_plus_context,S1_VH,ridge_vh,Ridge (VH) [Embeddings + region + Dynamic World],california_coast,0.9407548146453889,1.2344907371066283,0.9340232733956926,0.9718676582458763,216
+embedding_plus_context,S1_VH,ridge_vh,Ridge (VH) [Embeddings + region + Dynamic World],iowa_ag,0.8796371065941192,1.162816632629753,0.8771656697849126,0.9385530676478151,216
+embedding_plus_context,S1_VH,ridge_vh,Ridge (VH) [Embeddings + region + Dynamic World],sf_bay_urban,0.9061073559215237,1.620535679113577,1.0639989919480235,0.9530065395457872,216
+embedding_plus_context,S1_VV,ridge_vv,Ridge (VV) [Embeddings + region + Dynamic World],amazon_forest,0.9370677734924383,1.1122445760193154,0.7837253927772626,0.969387022824723,216
+embedding_plus_context,S1_VV,ridge_vv,Ridge (VV) [Embeddings + region + Dynamic World],california_coast,0.864560041313658,1.3579751763230674,0.9648144709125643,0.9307625568277145,216
+embedding_plus_context,S1_VV,ridge_vv,Ridge (VV) [Embeddings + region + Dynamic World],iowa_ag,0.848846899606788,1.3133571915655033,0.7995229829835245,0.9259512711038519,216
+embedding_plus_context,S1_VV,ridge_vv,Ridge (VV) [Embeddings + region + Dynamic World],sf_bay_urban,0.8003675065616342,1.8815716917895529,1.1868358586209362,0.8950779140780168,216
+embedding_plus_context,S1_VV_div_VH,ridge_polarization_difference,Ridge (VV-VH) [Embeddings + region + Dynamic World],amazon_forest,0.45560331082322103,1.0702626581692858,0.761128249631376,0.6935857701633323,216
+embedding_plus_context,S1_VV_div_VH,ridge_polarization_difference,Ridge (VV-VH) [Embeddings + region + Dynamic World],california_coast,0.8080457912802059,1.0924125216721154,0.8297356783111108,0.9046235873633075,216
+embedding_plus_context,S1_VV_div_VH,ridge_polarization_difference,Ridge (VV-VH) [Embeddings + region + Dynamic World],iowa_ag,0.526918369532899,1.2292935227210784,0.7774366308369847,0.7536273798881725,216
+embedding_plus_context,S1_VV_div_VH,ridge_polarization_difference,Ridge (VV-VH) [Embeddings + region + Dynamic World],sf_bay_urban,0.7138480586463245,1.147571105046827,0.836035306410122,0.8522648346602992,216
+embedding_plus_context,S1_VV_div_VH,ridge_structural_polarization_difference,Structural baseline (VV_hat - VH_hat) [Embeddings + region + Dynamic World],amazon_forest,0.45560331082322103,1.0702626581692858,0.7611282496313758,0.6935857701633324,216
+embedding_plus_context,S1_VV_div_VH,ridge_structural_polarization_difference,Structural baseline (VV_hat - VH_hat) [Embeddings + region + Dynamic World],california_coast,0.8080457912802059,1.0924125216721157,0.8297356783111114,0.9046235873633075,216
+embedding_plus_context,S1_VV_div_VH,ridge_structural_polarization_difference,Structural baseline (VV_hat - VH_hat) [Embeddings + region + Dynamic World],iowa_ag,0.5269183695328988,1.2292935227210786,0.7774366308369843,0.7536273798881719,216
+embedding_plus_context,S1_VV_div_VH,ridge_structural_polarization_difference,Structural baseline (VV_hat - VH_hat) [Embeddings + region + Dynamic World],sf_bay_urban,0.7138480586463247,1.1475711050468265,0.8360353064101218,0.8522648346602992,216

@@ -20,6 +20,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 ROOT_DIR = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = ROOT_DIR / "outputs" / "full_dataset"
 REPORTS_DIR = ROOT_DIR / "reports"
+WORKING_PLAN_PATH = ROOT_DIR.parent / "alphaearth-to-sar-cross-model-prediction-eda-working-plan.md"
 PHASE2_REPORT_PATH = OUTPUT_DIR / "phase2_modeling_summary_report.pdf"
 PHASE3_REPORT_PATH = OUTPUT_DIR / "phase3_failure_analysis_summary_report.pdf"
 PHASE4_REPORT_PATH = OUTPUT_DIR / "phase4_cross_modal_similarity_summary_report.pdf"
@@ -37,6 +38,10 @@ METRICS_PATH = OUTPUT_DIR / "full_dataset_lightgbm_metrics.csv"
 STABILITY_PATH = OUTPUT_DIR / "full_dataset_lightgbm_stability.csv"
 REGIONAL_PATH = OUTPUT_DIR / "full_dataset_lightgbm_regional_metrics.csv"
 LAND_USE_PATH = OUTPUT_DIR / "full_dataset_lightgbm_land_use_metrics.csv"
+POLARIZATION_DIFF_METRICS_PATH = OUTPUT_DIR / "full_dataset_polarization_difference_metrics.csv"
+RATIO_BASELINE_METRICS_PATH = OUTPUT_DIR / "full_dataset_ratio_baseline_metrics.csv"
+RATIO_BASELINE_REGIONAL_PATH = OUTPUT_DIR / "full_dataset_ratio_baseline_regional_metrics.csv"
+RATIO_BASELINE_LAND_USE_PATH = OUTPUT_DIR / "full_dataset_ratio_baseline_land_use_metrics.csv"
 PHASE3_SELECTION_PATH = OUTPUT_DIR / "phase3_best_model_selection.csv"
 PHASE3_LAND_USE_PATH = OUTPUT_DIR / "phase3_land_use_error.csv"
 PHASE3_SPATIAL_PATH = OUTPUT_DIR / "phase3_spatial_autocorrelation.csv"
@@ -51,21 +56,42 @@ FEATURE_LABELS = {
     "embedding_only": "Embeddings only",
     "embedding_plus_context": "Embeddings + region + Dynamic World",
 }
+PLAN_PHASES = [
+    "Phase 1: Data acquisition and preparation",
+    "Phase 2: Regression modeling",
+    "Phase 3: Failure-mode analysis",
+    "Phase 4: Cross-modal similarity",
+]
 
 
 def draw_text_page(title: str, lines: list[str], pdf: PdfPages) -> None:
-    fig = plt.figure(figsize=(8.5, 11))
-    ax = fig.add_axes([0.08, 0.06, 0.84, 0.88])
-    ax.axis("off")
-    ax.text(0.0, 0.98, title, fontsize=22, fontweight="bold", va="top")
-    y = 0.90
+    def start_page(page_title: str) -> tuple[plt.Figure, plt.Axes, float]:
+        fig = plt.figure(figsize=(8.5, 11))
+        ax = fig.add_axes([0.08, 0.06, 0.84, 0.88])
+        ax.axis("off")
+        ax.text(0.0, 0.98, page_title, fontsize=22, fontweight="bold", va="top")
+        return fig, ax, 0.90
+
+    fig, ax, y = start_page(title)
+    current_title = title
     for line in lines:
         if line == "":
+            if y <= 0.10:
+                pdf.savefig(fig)
+                plt.close(fig)
+                current_title = f"{title} (cont.)"
+                fig, ax, y = start_page(current_title)
             y -= 0.03
             continue
         wrapped = wrap_line(line, width=82 if line.startswith("  ") else 92, preserve_indent=line.startswith("  "))
+        line_height = 0.035 * (wrapped.count("\n") + 1)
+        if y - line_height < 0.06:
+            pdf.savefig(fig)
+            plt.close(fig)
+            current_title = f"{title} (cont.)"
+            fig, ax, y = start_page(current_title)
         ax.text(0.0, y, wrapped, fontsize=11, va="top", family="monospace" if line.startswith("  ") else None)
-        y -= 0.035 * (wrapped.count("\n") + 1)
+        y -= line_height
     pdf.savefig(fig)
     plt.close(fig)
 
@@ -143,6 +169,24 @@ def format_metrics_table(metrics_df: pd.DataFrame) -> pd.DataFrame:
     return table[
         ["target", "feature_set", "cv_r2_mean", "cv_rmse_mean", "stability_r2_mean", "stability_rmse_mean", "r2", "rmse", "mae", "pearson_r"]
     ]
+
+
+def format_ratio_baseline_table(ratio_df: pd.DataFrame) -> pd.DataFrame:
+    if ratio_df.empty:
+        return ratio_df
+    table = ratio_df.copy()
+    table["feature_set"] = table["feature_set"].map(FEATURE_LABELS)
+    table = format_float_columns(table, ["r2", "rmse", "mae", "pearson_r"])
+    return table[["feature_set", "model_label", "training_target", "r2", "rmse", "mae", "pearson_r"]]
+
+
+def format_polarization_table(polarization_df: pd.DataFrame) -> pd.DataFrame:
+    if polarization_df.empty:
+        return polarization_df
+    table = polarization_df.copy()
+    table["feature_set"] = table["feature_set"].map(FEATURE_LABELS)
+    table = format_float_columns(table, ["r2", "rmse", "mae", "pearson_r"])
+    return table[["feature_set", "model_label", "target", "training_target", "r2", "rmse", "mae", "pearson_r"]]
 
 
 def wrap_line(text: object, width: int, preserve_indent: bool = False) -> str:
@@ -223,7 +267,11 @@ def knn_overlap_baseline(n_queries: int, k: int) -> float:
     return float(k / (n_queries - 1))
 
 
-def build_phase2_summary_lines(metrics_df: pd.DataFrame, stability_df: pd.DataFrame) -> list[str]:
+def build_phase2_summary_lines(
+    metrics_df: pd.DataFrame,
+    stability_df: pd.DataFrame,
+    ratio_baselines: pd.DataFrame | None = None,
+) -> list[str]:
     best_rows = metrics_df.loc[metrics_df.groupby("target")["r2"].idxmax()].sort_values("target")
     stability_summary = (
         stability_df.groupby(["target", "feature_set"])[["r2", "rmse"]]
@@ -256,6 +304,62 @@ def build_phase2_summary_lines(metrics_df: pd.DataFrame, stability_df: pd.DataFr
             "- Important caveat: the outer holdout is stratified random within sampled regions, not spatially disjoint. Treat these as within-region generalization estimates rather than strict geographic transfer performance.",
         ]
     )
+    if ratio_baselines is not None and not ratio_baselines.empty:
+        best_ratio = ratio_baselines.sort_values("r2", ascending=False).iloc[0]
+        best_direct_ridge = ratio_baselines[ratio_baselines["model_name"] == "ridge_direct_ratio"].sort_values("r2", ascending=False).iloc[0]
+        best_log_ridge = ratio_baselines[ratio_baselines["model_name"] == "ridge_log_ratio"].sort_values("r2", ascending=False).iloc[0]
+        best_direct_gbdt = ratio_baselines[ratio_baselines["model_name"] == "lightgbm_direct_ratio"].sort_values("r2", ascending=False).iloc[0]
+        lines.extend(
+            [
+                "",
+                "Derived linear VV/VH ratio baselines:",
+                "- The stored S1_VV_div_VH target is a dB-space difference, so the new baseline reconstructs the physical VV/VH ratio from VV and VH before fitting/evaluation.",
+                f"- Best overall linear-ratio baseline: {best_ratio['model_label']} with R2={best_ratio['r2']:.3f}, RMSE={best_ratio['rmse']:.3f}, MAE={best_ratio['mae']:.3f}, r={best_ratio['pearson_r']:.3f}.",
+                f"- Ridge direct ratio best result: {best_direct_ridge['model_label']} (R2={best_direct_ridge['r2']:.3f}).",
+                f"- Ridge log-ratio best result: {best_log_ridge['model_label']} (R2={best_log_ridge['r2']:.3f}).",
+                f"- LightGBM direct ratio best result: {best_direct_gbdt['model_label']} (R2={best_direct_gbdt['r2']:.3f}).",
+            ]
+        )
+    return lines
+
+
+def build_ratio_baseline_lines(ratio_baselines: pd.DataFrame) -> list[str]:
+    best_overall = ratio_baselines.sort_values("r2", ascending=False).iloc[0]
+    lines = [
+        "Phase 2 ratio-baseline addendum",
+        "",
+        "These rows compare direct-ratio, log-ratio, and structural baselines on the derived linear VV/VH target.",
+        "The target is computed from the existing VV and VH columns and evaluated on the linear ratio scale.",
+        "",
+        f"Best overall baseline: {best_overall['model_label']} with R2={best_overall['r2']:.3f}, RMSE={best_overall['rmse']:.3f}, MAE={best_overall['mae']:.3f}, r={best_overall['pearson_r']:.3f}.",
+        "",
+        "Model families in this addendum:",
+        "- Ridge direct ratio: fit Ridge directly on VV/VH.",
+        "- Ridge log-ratio: fit Ridge on log(VV/VH), then exponentiate predictions.",
+        "- LightGBM direct ratio: fit LightGBM directly on VV/VH.",
+        "- Ridge structural ratio: predict VV and VH separately with Ridge, then reconstruct VV/VH.",
+    ]
+    return lines
+
+
+def build_polarization_difference_lines(polarization_df: pd.DataFrame) -> list[str]:
+    diff_rows = polarization_df[polarization_df["target"] == "S1_VV_div_VH"].copy()
+    best_direct = diff_rows[diff_rows["model_name"] == "ridge_polarization_difference"].sort_values("r2", ascending=False).iloc[0]
+    best_lightgbm = diff_rows[diff_rows["model_name"] == "lightgbm_polarization_difference"].sort_values("r2", ascending=False).iloc[0]
+    best_struct = diff_rows[diff_rows["model_name"] == "ridge_structural_polarization_difference"].sort_values("r2", ascending=False).iloc[0]
+    lines = [
+        "Polarization Difference Experiments",
+        "",
+        "This addendum compares direct and structural approaches for the stored polarization-difference target S1_VV_div_VH = S1_VV - S1_VH.",
+        "",
+        f"Best Ridge direct model: {best_direct['model_label']} with R2={best_direct['r2']:.3f}, RMSE={best_direct['rmse']:.3f}, MAE={best_direct['mae']:.3f}.",
+        f"Best LightGBM direct model: {best_lightgbm['model_label']} with R2={best_lightgbm['r2']:.3f}, RMSE={best_lightgbm['rmse']:.3f}, MAE={best_lightgbm['mae']:.3f}.",
+        f"Best structural baseline: {best_struct['model_label']} with R2={best_struct['r2']:.3f}, RMSE={best_struct['rmse']:.3f}, MAE={best_struct['mae']:.3f}.",
+        "",
+        "Interpretation:",
+        "- Direct VV-VH prediction tests whether the embedding captures polarization contrast as its own target.",
+        "- The structural baseline tests whether separate VV and VH Ridge models preserve the difference after subtraction.",
+    ]
     return lines
 
 
@@ -311,6 +415,8 @@ def build_project_summary_lines(
     phase4_overall: pd.DataFrame,
     phase4_land_use: pd.DataFrame,
     phase4_corr: pd.DataFrame,
+    polarization_df: pd.DataFrame | None = None,
+    ratio_baselines: pd.DataFrame | None = None,
 ) -> list[str]:
     best_rows = phase2_metrics.loc[phase2_metrics.groupby("target")["r2"].idxmax()].sort_values("target")
     primary_land = phase3_land_use[phase3_land_use["target"] == "S1_VV"].sort_values("mae", ascending=False).head(3)
@@ -355,6 +461,24 @@ def build_project_summary_lines(
     lines.extend(
         [
             "",
+            "Polarization-difference headline results:",
+        ]
+    )
+    if polarization_df is not None and not polarization_df.empty:
+        diff_rows = polarization_df[polarization_df["target"] == "S1_VV_div_VH"].copy()
+        best_direct = diff_rows[diff_rows["model_name"] == "ridge_polarization_difference"].sort_values("r2", ascending=False).iloc[0]
+        best_struct = diff_rows[diff_rows["model_name"] == "ridge_structural_polarization_difference"].sort_values("r2", ascending=False).iloc[0]
+        best_lightgbm = diff_rows[diff_rows["model_name"] == "lightgbm_polarization_difference"].sort_values("r2", ascending=False).iloc[0]
+        lines.extend(
+            [
+                f"- Best Ridge direct VV-VH model: {best_direct['model_label']} with R2={best_direct['r2']:.3f}.",
+                f"- Best structural VV_hat - VH_hat baseline: {best_struct['model_label']} with R2={best_struct['r2']:.3f}.",
+                f"- Best LightGBM VV-VH model: {best_lightgbm['model_label']} with R2={best_lightgbm['r2']:.3f}.",
+                "",
+            ]
+        )
+    lines.extend(
+        [
             "Phase 4 headline results:",
             f"- Overall cross-modal neighbor overlap at k=10 is {overlap_k10:.3f} versus a random-match baseline of about {baseline_k10:.3f}.",
             f"- Best land-use overlap at k=10 occurs for {best_land_use_k10['dw_label_name']} ({best_land_use_k10['mean_overlap']:.3f}).",
@@ -362,7 +486,189 @@ def build_project_summary_lines(
             f"- Within-region correlation is much stronger, peaking in {strongest_region['group']} at Pearson r={strongest_region['pearson_r']:.3f}.",
         ]
     )
+    if ratio_baselines is not None and not ratio_baselines.empty:
+        best_ratio = ratio_baselines.sort_values("r2", ascending=False).iloc[0]
+        lines.extend(
+            [
+                "",
+                "Ratio-baseline addendum:",
+                f"- On the derived linear VV/VH task, the best additional baseline is {best_ratio['model_label']} with R2={best_ratio['r2']:.3f} and RMSE={best_ratio['rmse']:.3f}.",
+            ]
+        )
     return lines
+
+
+def build_project_results_first_lines(
+    phase2_metrics: pd.DataFrame,
+    phase3_land_use: pd.DataFrame,
+    phase3_spatial: pd.DataFrame,
+    phase4_overall: pd.DataFrame,
+    phase4_land_use: pd.DataFrame,
+    phase4_corr: pd.DataFrame,
+    polarization_df: pd.DataFrame | None = None,
+    ratio_baselines: pd.DataFrame | None = None,
+) -> list[str]:
+    overall_corr = phase4_corr[phase4_corr["scope"] == "overall"].iloc[0]
+    strongest_region = phase4_corr[phase4_corr["scope"] == "region"].sort_values("pearson_r", ascending=False).iloc[0]
+    k10_row = phase4_overall.loc[phase4_overall["k"] == 10].iloc[0]
+    baseline_k10 = knn_overlap_baseline(int(k10_row["n_queries"]), 10)
+    hardest_land = phase3_land_use[phase3_land_use["target"] == "S1_VV"].sort_values("mae", ascending=False).head(3)
+
+    def format_model_run(label: str, feature_set: str, r2: float, rmse: float, mae: float) -> str:
+        return f"{label} / {FEATURE_LABELS[feature_set]}: R2={r2:.3f}, RMSE={rmse:.3f}, MAE={mae:.3f}"
+
+    lines = [
+        "Executive Summary",
+        "",
+        "Headline:",
+        "AlphaEarth embeddings predict Sentinel-1 backscatter strongly for VV and VH, more moderately for polarization-derived targets, and show a weaker but still measurable cross-modal similarity signal.",
+        "",
+        "Top results:",
+    ]
+
+    vv_rows = []
+    for row in polarization_df[polarization_df["target"] == "S1_VV"].itertuples():
+        vv_rows.append(("Ridge", row.feature_set, row.r2, row.rmse, row.mae))
+    for row in phase2_metrics[phase2_metrics["target"] == "S1_VV"].itertuples():
+        vv_rows.append(("GBDT (LightGBM)", row.feature_set, row.r2, row.rmse, row.mae))
+    vv_best = max(vv_rows, key=lambda item: item[2])
+    lines.append(f"- S1_VV: best result is {vv_best[0]} / {FEATURE_LABELS[vv_best[1]]} with R2={vv_best[2]:.3f}.")
+    for item in vv_rows:
+        lines.append("  " + format_model_run(*item))
+
+    vh_rows = []
+    for row in polarization_df[polarization_df["target"] == "S1_VH"].itertuples():
+        vh_rows.append(("Ridge", row.feature_set, row.r2, row.rmse, row.mae))
+    for row in phase2_metrics[phase2_metrics["target"] == "S1_VH"].itertuples():
+        vh_rows.append(("GBDT (LightGBM)", row.feature_set, row.r2, row.rmse, row.mae))
+    vh_best = max(vh_rows, key=lambda item: item[2])
+    lines.append(f"- S1_VH: best result is {vh_best[0]} / {FEATURE_LABELS[vh_best[1]]} with R2={vh_best[2]:.3f}.")
+    for item in vh_rows:
+        lines.append("  " + format_model_run(*item))
+
+    if polarization_df is not None and not polarization_df.empty:
+        diff_rows = polarization_df[polarization_df["target"] == "S1_VV_div_VH"].copy()
+        diff_runs = []
+        for row in diff_rows.itertuples():
+            if row.model_name == "ridge_polarization_difference":
+                label = "Ridge direct"
+            elif row.model_name == "ridge_structural_polarization_difference":
+                label = "Structural Ridge baseline"
+            else:
+                label = "GBDT (LightGBM)"
+            diff_runs.append((label, row.feature_set, row.r2, row.rmse, row.mae))
+        diff_best = max(diff_runs, key=lambda item: item[2])
+        lines.extend(
+            [
+                "",
+                "Polarization-difference result:",
+                f"- S1_VV_div_VH: best result is {diff_best[0]} / {FEATURE_LABELS[diff_best[1]]} with R2={diff_best[2]:.3f}.",
+            ]
+        )
+        for item in diff_runs:
+            lines.append("  " + format_model_run(*item))
+    if ratio_baselines is not None and not ratio_baselines.empty:
+        best_ratio = ratio_baselines.sort_values("r2", ascending=False).iloc[0]
+        lines.append(f"- Derived linear VV/VH benchmark: {best_ratio['model_label']} is strongest at R2={best_ratio['r2']:.3f}.")
+    lines.extend(
+        [
+            "",
+            "Failure-mode readout:",
+            "Highest-error S1_VV land-use classes by MAE:",
+        ]
+    )
+    for row in hardest_land.itertuples():
+        lines.append(f"  {row.dw_label_name}: MAE={row.mae:.3f}, bias={row.bias:.3f}")
+    lines.extend(
+        [
+            "",
+            "Cross-modal similarity readout:",
+            f"- At k=10, mean embedding/SAR neighbor overlap is {k10_row['mean_overlap']:.3f} versus a random baseline near {baseline_k10:.3f}.",
+            f"- Overall embedding-to-SAR distance correlation is modest (Pearson r={overall_corr['pearson_r']:.3f}), but within-region correlation peaks at {strongest_region['pearson_r']:.3f} in {strongest_region['group']}.",
+            "",
+            "Executive takeaway:",
+            "- The embeddings carry clear SAR-relevant signal. The strongest wins are on VV and VH, polarization structure is recoverable but weaker, and cross-modal similarity is real but much more convincing within region than across the pooled dataset.",
+        ]
+    )
+    return lines
+
+
+def build_project_plan_alignment_lines() -> list[str]:
+    return [
+        "Working Plan Alignment",
+        "",
+        f"Source plan: {WORKING_PLAN_PATH.name}",
+        "",
+        "Original planned workflow:",
+        *[f"- {phase}" for phase in PLAN_PHASES],
+        "",
+        "What was actually completed:",
+        "- A full-dataset workflow on 2,880 balanced samples instead of the earlier small-subset concept.",
+        "- Phase 2 used LightGBM as the primary nonlinear model, with added Ridge-based follow-up baselines for polarization difference and derived ratio analysis.",
+        "- Phase 3 and Phase 4 were completed with reportable outputs and summary figures.",
+        "- Umbra SAR remains a planned extension rather than a completed dataset in the current pipeline.",
+        "",
+        "Interpretation:",
+        "- The project should be described as an updated implementation of the working plan, not a verbatim execution of every proposed modeling choice.",
+    ]
+
+
+def build_project_methods_lines() -> list[str]:
+    return [
+        "Methods and Data",
+        "",
+        "Dataset:",
+        "- 2,880 co-located samples across four regions and nine Dynamic World labels.",
+        "- Targets: S1_VV, S1_VH, and S1_VV_div_VH where the stored polarization target is the dB-space difference VV - VH.",
+        "- Feature sets: 64-dim AlphaEarth embeddings alone, or embeddings plus region and Dynamic World context.",
+        "",
+        "Evaluation design:",
+        "- 70/30 held-out split stratified by region x land-use label.",
+        "- Repeated grouped cross-validation on the training split using spatial blocks inside each region.",
+        "- Metrics: R2, RMSE, MAE, Pearson correlation.",
+        "",
+        "Caveat from the working plan context:",
+        "- The holdout is stratified random rather than geographically disjoint, so performance should be interpreted as within-region generalization rather than strict transfer to unseen geographies.",
+    ]
+
+
+def build_project_success_criteria_lines(
+    phase2_metrics: pd.DataFrame,
+    phase4_overall: pd.DataFrame,
+    phase4_corr: pd.DataFrame,
+) -> list[str]:
+    best_rows = phase2_metrics.loc[phase2_metrics.groupby("target")["r2"].idxmax()].sort_values("target")
+    vv_best = best_rows[best_rows["target"] == "S1_VV"].iloc[0]
+    vh_best = best_rows[best_rows["target"] == "S1_VH"].iloc[0]
+    diff_best = best_rows[best_rows["target"] == "S1_VV_div_VH"].iloc[0]
+    overall_corr = phase4_corr[phase4_corr["scope"] == "overall"].iloc[0]
+    k10_row = phase4_overall.loc[phase4_overall["k"] == 10].iloc[0]
+    return [
+        "Planned Success Criteria vs Observed Results",
+        "",
+        "Predictive capacity:",
+        f"- The working plan targeted Ridge R2 > 0.5 and boosted-tree R2 > 0.65. Observed best held-out R2 values are VV={vv_best['r2']:.3f}, VH={vh_best['r2']:.3f}, and VV-VH={diff_best['r2']:.3f}.",
+        f"- The RMSE < 3 dB target is satisfied comfortably for the completed Sentinel-1 targets: VV={vv_best['rmse']:.3f}, VH={vh_best['rmse']:.3f}, VV-VH={diff_best['rmse']:.3f}.",
+        "",
+        "Cross-modal similarity:",
+        f"- The plan's optimistic k-NN overlap target (>40%) is not met in pooled form; observed mean overlap at k=10 is {k10_row['mean_overlap']:.3f}.",
+        f"- The plan's distance-correlation target (>0.3) is approximately met overall with Pearson r={overall_corr['pearson_r']:.3f}, and is exceeded within some regions.",
+        "",
+        "Failure analysis:",
+        "- The plan expected clear land-use-specific error differences. The completed Phase 3 outputs do show materially different MAE by land-use class.",
+        "- Strong global evidence of residual spatial clustering was not established; any isolated Moran's I hits should be treated as exploratory.",
+    ]
+
+
+def build_project_next_steps_lines() -> list[str]:
+    return [
+        "Recommended Next Steps",
+        "",
+        "- Add Umbra SAR once co-registered scenes are available so the resolution-sensitivity question from the working plan can be answered directly.",
+        "- If the next goal is interpretability, prioritize stable Ridge-style analyses for polarization-difference targets and regional subgroup reporting.",
+        "- If the next goal is pure predictive performance, focus on stronger spatial holdouts and additional context features rather than more within-region tuning.",
+        "- If the next goal is cross-modal representation learning, use the Phase 4 within-region signal as motivation for joint optical/SAR embedding work.",
+    ]
 
 
 def build_phase4_summary_lines(
@@ -416,6 +722,14 @@ def load_report_inputs() -> dict[str, pd.DataFrame]:
         "stability": pd.read_csv(STABILITY_PATH),
         "regional": pd.read_csv(REGIONAL_PATH),
         "land_use": pd.read_csv(LAND_USE_PATH),
+        "polarization": pd.read_csv(POLARIZATION_DIFF_METRICS_PATH) if POLARIZATION_DIFF_METRICS_PATH.exists() else pd.DataFrame(),
+        "ratio_baselines": pd.read_csv(RATIO_BASELINE_METRICS_PATH) if RATIO_BASELINE_METRICS_PATH.exists() else pd.DataFrame(),
+        "ratio_baseline_regional": (
+            pd.read_csv(RATIO_BASELINE_REGIONAL_PATH) if RATIO_BASELINE_REGIONAL_PATH.exists() else pd.DataFrame()
+        ),
+        "ratio_baseline_land_use": (
+            pd.read_csv(RATIO_BASELINE_LAND_USE_PATH) if RATIO_BASELINE_LAND_USE_PATH.exists() else pd.DataFrame()
+        ),
         "phase3_selection": pd.read_csv(PHASE3_SELECTION_PATH),
         "phase3_land_use": pd.read_csv(PHASE3_LAND_USE_PATH),
         "phase3_spatial": pd.read_csv(PHASE3_SPATIAL_PATH),
@@ -434,6 +748,8 @@ def build_phase2_report(inputs: dict[str, pd.DataFrame]) -> None:
     stability_df = inputs["stability"]
     regional_df = inputs["regional"]
     land_use_df = inputs["land_use"]
+    polarization_df = inputs["polarization"]
+    ratio_baselines = inputs["ratio_baselines"]
 
     stability_summary = (
         stability_df.groupby(["target", "feature_set"])[["r2", "rmse", "mae"]]
@@ -453,13 +769,29 @@ def build_phase2_report(inputs: dict[str, pd.DataFrame]) -> None:
     land_use_vv = format_float_columns(land_use_vv, ["r2", "rmse", "mae", "pearson_r"])
 
     with PdfPages(PHASE2_REPORT_PATH) as pdf:
-        draw_text_page("Phase 2 Modeling Summary", build_phase2_summary_lines(metrics_df, stability_df), pdf)
+        draw_text_page("Phase 2 Modeling Summary", build_phase2_summary_lines(metrics_df, stability_df, ratio_baselines), pdf)
         draw_dataframe_page(
             "Held-out Performance by Feature Set",
             format_metrics_table(metrics_df),
             pdf,
             footnote="The holdout test set is shared across the two feature-set ablations. It is a stratified random holdout within sampled regions rather than a spatially disjoint holdout, so these estimates may be optimistic relative to stricter geographic transfer tests.",
         )
+        if not polarization_df.empty:
+            draw_text_page("Polarization Difference Experiments", build_polarization_difference_lines(polarization_df), pdf)
+            draw_dataframe_page(
+                "Polarization Difference Comparison",
+                format_polarization_table(polarization_df),
+                pdf,
+                footnote="The structural baseline subtracts Ridge VV and Ridge VH predictions and evaluates the result against the stored dB-space polarization difference target.",
+            )
+        if not ratio_baselines.empty:
+            draw_text_page("VV/VH Ratio Baselines", build_ratio_baseline_lines(ratio_baselines), pdf)
+            draw_dataframe_page(
+                "Derived Linear VV/VH Baselines",
+                format_ratio_baseline_table(ratio_baselines),
+                pdf,
+                footnote="These baselines evaluate the physical linear VV/VH ratio reconstructed from the stored VV and VH columns. The dataset's original S1_VV_div_VH target remains the dB-space difference used in the main LightGBM tables above.",
+            )
         draw_dataframe_page(
             "Repeated Grouped-CV Stability",
             stability_summary,
@@ -628,6 +960,8 @@ def build_phase4_report(inputs: dict[str, pd.DataFrame]) -> None:
 
 def build_project_report(inputs: dict[str, pd.DataFrame]) -> None:
     metrics_df = inputs["metrics"]
+    polarization_df = inputs["polarization"]
+    ratio_baselines = inputs["ratio_baselines"]
     phase3_land_use = inputs["phase3_land_use"]
     phase3_spatial = inputs["phase3_spatial"]
     phase4_overall = inputs["phase4_overall"]
@@ -658,7 +992,23 @@ def build_project_report(inputs: dict[str, pd.DataFrame]) -> None:
     with PdfPages(PROJECT_REPORT_PATH) as pdf:
         draw_text_page(
             "Project Summary Report",
-            build_project_summary_lines(metrics_df, phase3_land_use, phase3_spatial, phase4_overall, phase4_land_use, phase4_corr),
+            build_project_results_first_lines(
+                metrics_df,
+                phase3_land_use,
+                phase3_spatial,
+                phase4_overall,
+                phase4_land_use,
+                phase4_corr,
+                polarization_df,
+                ratio_baselines,
+            ),
+            pdf,
+        )
+        draw_text_page("Plan Alignment", build_project_plan_alignment_lines(), pdf)
+        draw_text_page("Methods and Data", build_project_methods_lines(), pdf)
+        draw_text_page(
+            "Success Criteria Review",
+            build_project_success_criteria_lines(metrics_df, phase4_overall, phase4_corr),
             pdf,
         )
         draw_dataframe_page(
@@ -667,6 +1017,13 @@ def build_project_report(inputs: dict[str, pd.DataFrame]) -> None:
             pdf,
             footnote="These are the best held-out full-dataset models selected for the project summary.",
         )
+        if not polarization_df.empty:
+            draw_dataframe_page(
+                "Polarization Difference Comparison",
+                format_polarization_table(polarization_df),
+                pdf,
+                footnote="This table compares direct VV-VH prediction, the structural VV_hat - VH_hat baseline, and the reused LightGBM VV-VH result.",
+            )
         draw_dataframe_page(
             "Top S1_VV Failure Modes",
             project_land_use[["dw_label_name", "mae", "rmse", "bias", "p90_abs_error", "n"]].reset_index(drop=True),
@@ -701,6 +1058,7 @@ def build_project_report(inputs: dict[str, pd.DataFrame]) -> None:
             ],
             pdf,
         )
+        draw_text_page("Next Steps", build_project_next_steps_lines(), pdf)
 
 
 def copy_reports() -> None:

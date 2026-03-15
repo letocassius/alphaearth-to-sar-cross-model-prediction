@@ -1,0 +1,33 @@
+feature_set,target,model_name,model_label,region,r2,rmse,mae,pearson_r,n_test
+embedding_only,S1_VV_div_VH_linear,lightgbm_direct_ratio,LightGBM direct ratio (Embeddings only),amazon_forest,0.3591425906083673,1.4829470126599225,0.9238542070159449,0.6449314592947606,216
+embedding_only,S1_VV_div_VH_linear,lightgbm_direct_ratio,LightGBM direct ratio (Embeddings only),california_coast,0.7817870635555929,3.359941878454806,1.8144108394128553,0.8842248360453917,216
+embedding_only,S1_VV_div_VH_linear,lightgbm_direct_ratio,LightGBM direct ratio (Embeddings only),iowa_ag,0.16188605283339708,4.983578486244189,1.7677397770732493,0.44265651594453037,216
+embedding_only,S1_VV_div_VH_linear,lightgbm_direct_ratio,LightGBM direct ratio (Embeddings only),sf_bay_urban,0.6126609109213298,2.514217952237824,1.5036659846717055,0.7830121800891527,216
+embedding_only,S1_VV_div_VH_linear,ridge_direct_ratio,Ridge direct ratio (Embeddings only),amazon_forest,-0.10001103444301296,1.9428686894067624,1.3055889300871126,0.5571938370200387,216
+embedding_only,S1_VV_div_VH_linear,ridge_direct_ratio,Ridge direct ratio (Embeddings only),california_coast,0.6921426811031686,3.990857854939021,2.1552707303566825,0.8475839739070661,216
+embedding_only,S1_VV_div_VH_linear,ridge_direct_ratio,Ridge direct ratio (Embeddings only),iowa_ag,0.27477397983622953,4.635818851683797,1.6374938072462328,0.5784726470478954,216
+embedding_only,S1_VV_div_VH_linear,ridge_direct_ratio,Ridge direct ratio (Embeddings only),sf_bay_urban,0.4158423445683799,3.0876089836956315,2.039295744525293,0.7284162826019219,216
+embedding_only,S1_VV_div_VH_linear,ridge_log_ratio,Ridge log-ratio (Embeddings only),amazon_forest,0.38295055098019715,1.455140448594113,0.919256800794801,0.6506968271472537,216
+embedding_only,S1_VV_div_VH_linear,ridge_log_ratio,Ridge log-ratio (Embeddings only),california_coast,0.673978359521576,4.106905712177251,1.9501867314258963,0.8680598325841721,216
+embedding_only,S1_VV_div_VH_linear,ridge_log_ratio,Ridge log-ratio (Embeddings only),iowa_ag,0.19161772549126954,4.894385347395897,1.4862242752404906,0.5277029113198497,216
+embedding_only,S1_VV_div_VH_linear,ridge_log_ratio,Ridge log-ratio (Embeddings only),sf_bay_urban,0.601629857263307,2.5497679053460294,1.4620782617092654,0.7777921895516704,216
+embedding_only,S1_VV_div_VH_linear,ridge_structural_ratio,Ridge structural ratio (Embeddings only),amazon_forest,0.38295055098019737,1.4551404485941128,0.9192568007948014,0.6506968271472541,216
+embedding_only,S1_VV_div_VH_linear,ridge_structural_ratio,Ridge structural ratio (Embeddings only),california_coast,0.673978359521576,4.106905712177251,1.9501867314258974,0.868059832584172,216
+embedding_only,S1_VV_div_VH_linear,ridge_structural_ratio,Ridge structural ratio (Embeddings only),iowa_ag,0.19161772549126954,4.894385347395897,1.4862242752404897,0.5277029113198486,216
+embedding_only,S1_VV_div_VH_linear,ridge_structural_ratio,Ridge structural ratio (Embeddings only),sf_bay_urban,0.601629857263307,2.5497679053460294,1.4620782617092654,0.7777921895516704,216
+embedding_plus_context,S1_VV_div_VH_linear,lightgbm_direct_ratio,LightGBM direct ratio (Embeddings + region + Dynamic World),amazon_forest,0.36049935612633655,1.4813764000842746,0.9223001681979758,0.6436155802436877,216
+embedding_plus_context,S1_VV_div_VH_linear,lightgbm_direct_ratio,LightGBM direct ratio (Embeddings + region + Dynamic World),california_coast,0.7799766105641508,3.3738513462291597,1.8223930136821311,0.8831777572843242,216
+embedding_plus_context,S1_VV_div_VH_linear,lightgbm_direct_ratio,LightGBM direct ratio (Embeddings + region + Dynamic World),iowa_ag,0.08513231672280153,5.20677620973205,1.7254161564186146,0.3154692694493828,216
+embedding_plus_context,S1_VV_div_VH_linear,lightgbm_direct_ratio,LightGBM direct ratio (Embeddings + region + Dynamic World),sf_bay_urban,0.6580770319916178,2.3622257370423103,1.4973852873158717,0.8113409569729466,216
+embedding_plus_context,S1_VV_div_VH_linear,ridge_direct_ratio,Ridge direct ratio (Embeddings + region + Dynamic World),amazon_forest,0.03216852956467575,1.8224045809287788,1.2524716744907172,0.5832805823443282,216
+embedding_plus_context,S1_VV_div_VH_linear,ridge_direct_ratio,Ridge direct ratio (Embeddings + region + Dynamic World),california_coast,0.7005027351751713,3.9362978078800053,2.1816454088118977,0.8493233496623493,216
+embedding_plus_context,S1_VV_div_VH_linear,ridge_direct_ratio,Ridge direct ratio (Embeddings + region + Dynamic World),iowa_ag,0.2617245916121157,4.677340316192914,1.6301003255959452,0.5710669794775083,216
+embedding_plus_context,S1_VV_div_VH_linear,ridge_direct_ratio,Ridge direct ratio (Embeddings + region + Dynamic World),sf_bay_urban,0.43267132860320545,3.042808534961218,2.05142925090351,0.7376404335019332,216
+embedding_plus_context,S1_VV_div_VH_linear,ridge_log_ratio,Ridge log-ratio (Embeddings + region + Dynamic World),amazon_forest,0.41777628050169824,1.413480676720635,0.9042805882181146,0.6666359078354942,216
+embedding_plus_context,S1_VV_div_VH_linear,ridge_log_ratio,Ridge log-ratio (Embeddings + region + Dynamic World),california_coast,0.6895163087181808,4.007844975827008,1.9391217090894566,0.8695903344584319,216
+embedding_plus_context,S1_VV_div_VH_linear,ridge_log_ratio,Ridge log-ratio (Embeddings + region + Dynamic World),iowa_ag,0.18030927168375077,4.9285002142579275,1.5105751445474467,0.5146881560336956,216
+embedding_plus_context,S1_VV_div_VH_linear,ridge_log_ratio,Ridge log-ratio (Embeddings + region + Dynamic World),sf_bay_urban,0.6075320908360415,2.5308087974153164,1.457659563630447,0.7816493381053733,216
+embedding_plus_context,S1_VV_div_VH_linear,ridge_structural_ratio,Ridge structural ratio (Embeddings + region + Dynamic World),amazon_forest,0.41777628050169924,1.4134806767206338,0.9042805882181143,0.6666359078354948,216
+embedding_plus_context,S1_VV_div_VH_linear,ridge_structural_ratio,Ridge structural ratio (Embeddings + region + Dynamic World),california_coast,0.6895163087181808,4.007844975827008,1.939121709089457,0.8695903344584317,216
+embedding_plus_context,S1_VV_div_VH_linear,ridge_structural_ratio,Ridge structural ratio (Embeddings + region + Dynamic World),iowa_ag,0.18030927168375077,4.9285002142579275,1.5105751445474458,0.5146881560336943,216
+embedding_plus_context,S1_VV_div_VH_linear,ridge_structural_ratio,Ridge structural ratio (Embeddings + region + Dynamic World),sf_bay_urban,0.607532090836042,2.530808797415315,1.457659563630447,0.7816493381053734,216

@@ -29,6 +29,7 @@ import pandas as pd
 from lightgbm import LGBMRegressor, early_stopping, log_evaluation
 from scipy.stats import pearsonr
 from sklearn.inspection import permutation_importance
+from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import StratifiedGroupKFold, train_test_split
 
@@ -53,6 +54,11 @@ DW_PROB_COLS = [
     "snow_and_ice",
 ]
 TARGET_COLS = ["S1_VV", "S1_VH", "S1_VV_div_VH"]
+POLARIZATION_DIFF_TARGET = "S1_VV_div_VH"
+LINEAR_RATIO_COL = "S1_VV_div_VH_linear"
+LOG_RATIO_COL = "S1_log_VV_div_VH"
+RATIO_EPSILON = 1e-6
+RIDGE_ALPHA = 1.0
 DW_LABEL_NAMES = {
     0: "water",
     1: "trees",
@@ -63,6 +69,10 @@ DW_LABEL_NAMES = {
     6: "built",
     7: "bare",
     8: "snow_and_ice",
+}
+FEATURE_LABELS = {
+    "embedding_only": "Embeddings only",
+    "embedding_plus_context": "Embeddings + region + Dynamic World",
 }
 
 
@@ -89,6 +99,55 @@ def evaluate_predictions(y_true: pd.Series, y_pred: np.ndarray) -> Dict[str, flo
         "mae": float(mean_absolute_error(y_true, y_pred)),
         "pearson_r": safe_pearsonr(y_true, y_pred),
     }
+
+
+def compute_stable_ratio_targets(vv: np.ndarray, vh: np.ndarray) -> Tuple[np.ndarray, np.ndarray, str]:
+    clipped_vh = np.clip(vh, RATIO_EPSILON, None)
+    direct_ratio = vv / clipped_vh
+    if np.all(np.isfinite(direct_ratio)) and np.all(direct_ratio > 0):
+        ratio = direct_ratio
+        ratio_target_space = "raw_backscatter_ratio"
+    else:
+        # The stored Sentinel-1 targets are in dB, so derive the physical VV/VH ratio in linear space.
+        vv_linear = np.power(10.0, vv / 10.0)
+        vh_linear = np.power(10.0, vh / 10.0)
+        ratio = vv_linear / np.clip(vh_linear, RATIO_EPSILON, None)
+        ratio_target_space = "linearized_db_ratio"
+    return ratio, np.log(ratio), ratio_target_space
+
+
+def add_ratio_targets(df: pd.DataFrame) -> Tuple[pd.DataFrame, str]:
+    out = df.copy()
+    ratio, log_ratio, ratio_target_space = compute_stable_ratio_targets(
+        out["S1_VV"].to_numpy(dtype=float),
+        out["S1_VH"].to_numpy(dtype=float),
+    )
+    out[LINEAR_RATIO_COL] = ratio
+    out[LOG_RATIO_COL] = log_ratio
+    return out, ratio_target_space
+
+
+def build_output_stem(feature_set: str, target: str, model_name: str | None = None) -> str:
+    parts = [feature_set, target]
+    if model_name:
+        parts.append(model_name)
+    return "_".join(parts)
+
+
+def ridge_params() -> Dict[str, Any]:
+    return {"alpha": RIDGE_ALPHA}
+
+
+def train_ridge_model(X_train: pd.DataFrame, y_train: pd.Series) -> Ridge:
+    model = Ridge(**ridge_params())
+    model.fit(X_train, y_train)
+    return model
+
+
+def train_log_ratio_model(X_train: pd.DataFrame, y_train: pd.Series) -> Ridge:
+    model = Ridge(**ridge_params())
+    model.fit(X_train, y_train)
+    return model
 
 
 def load_dataset() -> pd.DataFrame:
@@ -262,6 +321,7 @@ def save_feature_importance(
     model: LGBMRegressor,
     X_test: pd.DataFrame,
     y_test: pd.Series,
+    model_name: str | None = None,
 ) -> None:
     gain_importance = model.booster_.feature_importance(importance_type="gain")
     split_importance = model.booster_.feature_importance(importance_type="split")
@@ -283,7 +343,10 @@ def save_feature_importance(
             "permutation_std": perm.importances_std,
         }
     ).sort_values("permutation_mean", ascending=False)
-    importance.to_csv(OUTPUT_DIR / f"feature_importance_{feature_set}_{target}_lightgbm.csv", index=False)
+    importance.to_csv(
+        OUTPUT_DIR / f"feature_importance_{build_output_stem(feature_set, target, model_name or 'lightgbm')}.csv",
+        index=False,
+    )
 
 
 def save_predicted_vs_actual_plot(
@@ -292,6 +355,8 @@ def save_predicted_vs_actual_plot(
     y_true: pd.Series,
     y_pred: np.ndarray,
     metrics: Dict[str, float],
+    model_name: str | None = None,
+    title_label: str | None = None,
 ) -> None:
     plt.figure(figsize=(7, 6))
     plt.scatter(y_true, y_pred, alpha=0.65, edgecolor="none")
@@ -300,7 +365,7 @@ def save_predicted_vs_actual_plot(
     plt.plot([data_min, data_max], [data_min, data_max], linestyle="--", color="black", linewidth=1)
     plt.xlabel(f"Actual {target}")
     plt.ylabel(f"Predicted {target}")
-    plt.title(f"{feature_set}: Predicted vs Actual {target}")
+    plt.title(f"{title_label or feature_set}: Predicted vs Actual {target}")
     plt.text(
         0.03,
         0.97,
@@ -310,20 +375,27 @@ def save_predicted_vs_actual_plot(
         bbox={"facecolor": "white", "alpha": 0.8, "edgecolor": "0.7"},
     )
     plt.tight_layout()
-    plt.savefig(OUTPUT_DIR / f"predicted_vs_actual_{feature_set}_{target}.png", dpi=200)
+    plt.savefig(OUTPUT_DIR / f"predicted_vs_actual_{build_output_stem(feature_set, target, model_name)}.png", dpi=200)
     plt.close()
 
 
-def save_residual_histogram(feature_set: str, target: str, y_true: pd.Series, y_pred: np.ndarray) -> None:
+def save_residual_histogram(
+    feature_set: str,
+    target: str,
+    y_true: pd.Series,
+    y_pred: np.ndarray,
+    model_name: str | None = None,
+    title_label: str | None = None,
+) -> None:
     residuals = y_pred - y_true.to_numpy()
     plt.figure(figsize=(7, 5))
     plt.hist(residuals, bins=28, color="#bfdbfe", edgecolor="#1d4ed8")
     plt.axvline(0.0, color="black", linestyle="--", linewidth=1)
     plt.xlabel("Residual (predicted - actual)")
     plt.ylabel("Count")
-    plt.title(f"{feature_set}: Residual Histogram for {target}")
+    plt.title(f"{title_label or feature_set}: Residual Histogram for {target}")
     plt.tight_layout()
-    plt.savefig(OUTPUT_DIR / f"residual_histogram_{feature_set}_{target}.png", dpi=200)
+    plt.savefig(OUTPUT_DIR / f"residual_histogram_{build_output_stem(feature_set, target, model_name)}.png", dpi=200)
     plt.close()
 
 
@@ -333,14 +405,20 @@ def save_test_predictions(
     target: str,
     y_true: pd.Series,
     y_pred: np.ndarray,
-) -> None:
+    model_name: str | None = None,
+    model_label: str | None = None,
+) -> Path:
     out = test_df[["system:index", "region", "dw_label_name", "latitude", "longitude", "spatial_block"]].copy()
     out["feature_set"] = feature_set
     out["target"] = target
+    out["model_name"] = model_name or "lightgbm"
+    out["model_label"] = model_label or FEATURE_LABELS.get(feature_set, feature_set)
     out["actual"] = y_true.to_numpy()
     out["predicted"] = y_pred
     out["residual"] = out["predicted"] - out["actual"]
-    out.to_csv(OUTPUT_DIR / f"test_predictions_{feature_set}_{target}.csv", index=False)
+    out_path = OUTPUT_DIR / f"test_predictions_{build_output_stem(feature_set, target, model_name)}.csv"
+    out.to_csv(out_path, index=False)
+    return out_path
 
 
 def subgroup_metrics(
@@ -349,6 +427,8 @@ def subgroup_metrics(
     target: str,
     y_true: pd.Series,
     y_pred: np.ndarray,
+    model_name: str | None = None,
+    model_label: str | None = None,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     frame = pd.DataFrame(
         {
@@ -365,6 +445,8 @@ def subgroup_metrics(
             {
                 "feature_set": feature_set,
                 "target": target,
+                "model_name": model_name or "lightgbm",
+                "model_label": model_label or FEATURE_LABELS.get(feature_set, feature_set),
                 "region": region,
                 **evaluate_predictions(part["y_true"], part["y_pred"]),
                 "n_test": int(len(part)),
@@ -375,12 +457,159 @@ def subgroup_metrics(
             {
                 "feature_set": feature_set,
                 "target": target,
+                "model_name": model_name or "lightgbm",
+                "model_label": model_label or FEATURE_LABELS.get(feature_set, feature_set),
                 "dw_label_name": label,
                 **evaluate_predictions(part["y_true"], part["y_pred"]),
                 "n_test": int(len(part)),
             }
-        )
+    )
     return pd.DataFrame(region_rows), pd.DataFrame(land_use_rows)
+
+
+def evaluate_ratio_baseline(
+    test_df: pd.DataFrame,
+    feature_set: str,
+    model_name: str,
+    model_label: str,
+    training_target: str,
+    y_train_true: pd.Series,
+    y_train_pred: np.ndarray,
+    y_test_true: pd.Series,
+    y_test_pred: np.ndarray,
+    best_params: Dict[str, Any],
+) -> Tuple[Dict[str, Any], pd.DataFrame, pd.DataFrame]:
+    train_metrics = evaluate_predictions(y_train_true, y_train_pred)
+    test_metrics = evaluate_predictions(y_test_true, y_test_pred)
+    prediction_path = save_test_predictions(
+        test_df,
+        feature_set,
+        LINEAR_RATIO_COL,
+        y_test_true,
+        y_test_pred,
+        model_name=model_name,
+        model_label=model_label,
+    )
+    save_predicted_vs_actual_plot(
+        feature_set,
+        LINEAR_RATIO_COL,
+        y_test_true,
+        y_test_pred,
+        test_metrics,
+        model_name=model_name,
+        title_label=model_label,
+    )
+    save_residual_histogram(
+        feature_set,
+        LINEAR_RATIO_COL,
+        y_test_true,
+        y_test_pred,
+        model_name=model_name,
+        title_label=model_label,
+    )
+    region_df, land_use_df = subgroup_metrics(
+        test_df,
+        feature_set,
+        LINEAR_RATIO_COL,
+        y_test_true,
+        y_test_pred,
+        model_name=model_name,
+        model_label=model_label,
+    )
+    return (
+        {
+            "feature_set": feature_set,
+            "target": LINEAR_RATIO_COL,
+            "training_target": training_target,
+            "model_name": model_name,
+            "model_label": model_label,
+            "train_r2": train_metrics["r2"],
+            "train_rmse": train_metrics["rmse"],
+            "train_mae": train_metrics["mae"],
+            "best_params": json.dumps(best_params, sort_keys=True),
+            "r2": test_metrics["r2"],
+            "rmse": test_metrics["rmse"],
+            "mae": test_metrics["mae"],
+            "pearson_r": test_metrics["pearson_r"],
+            "prediction_file": prediction_path.name,
+        },
+        region_df,
+        land_use_df,
+    )
+
+
+def evaluate_experiment(
+    test_df: pd.DataFrame,
+    feature_set: str,
+    target: str,
+    model_name: str,
+    model_label: str,
+    training_target: str,
+    y_train_true: pd.Series,
+    y_train_pred: np.ndarray,
+    y_test_true: pd.Series,
+    y_test_pred: np.ndarray,
+    best_params: Dict[str, Any],
+    save_artifacts: bool = True,
+) -> Tuple[Dict[str, Any], pd.DataFrame, pd.DataFrame]:
+    train_metrics = evaluate_predictions(y_train_true, y_train_pred)
+    test_metrics = evaluate_predictions(y_test_true, y_test_pred)
+    prediction_path = save_test_predictions(
+        test_df,
+        feature_set,
+        target,
+        y_test_true,
+        y_test_pred,
+        model_name=model_name,
+        model_label=model_label,
+    )
+    if save_artifacts:
+        save_predicted_vs_actual_plot(
+            feature_set,
+            target,
+            y_test_true,
+            y_test_pred,
+            test_metrics,
+            model_name=model_name,
+            title_label=model_label,
+        )
+        save_residual_histogram(
+            feature_set,
+            target,
+            y_test_true,
+            y_test_pred,
+            model_name=model_name,
+            title_label=model_label,
+        )
+    region_df, land_use_df = subgroup_metrics(
+        test_df,
+        feature_set,
+        target,
+        y_test_true,
+        y_test_pred,
+        model_name=model_name,
+        model_label=model_label,
+    )
+    return (
+        {
+            "feature_set": feature_set,
+            "target": target,
+            "training_target": training_target,
+            "model_name": model_name,
+            "model_label": model_label,
+            "train_r2": train_metrics["r2"],
+            "train_rmse": train_metrics["rmse"],
+            "train_mae": train_metrics["mae"],
+            "r2": test_metrics["r2"],
+            "rmse": test_metrics["rmse"],
+            "mae": test_metrics["mae"],
+            "pearson_r": test_metrics["pearson_r"],
+            "best_params": json.dumps(best_params, sort_keys=True),
+            "prediction_file": prediction_path.name,
+        },
+        region_df,
+        land_use_df,
+    )
 
 
 def audit_dataset(df: pd.DataFrame) -> Dict[str, Any]:
@@ -393,13 +622,13 @@ def audit_dataset(df: pd.DataFrame) -> Dict[str, Any]:
         "n_regions": int(df["region"].nunique()),
         "n_land_use_labels": int(df["dw_label"].nunique()),
         "spatial_blocks": int(df["spatial_block"].nunique()),
-        "missing_ratio": float(df[EMBEDDING_COLS + DW_PROB_COLS + TARGET_COLS].isna().mean().mean()),
+        "missing_ratio": float(df[EMBEDDING_COLS + DW_PROB_COLS + TARGET_COLS + [LINEAR_RATIO_COL, LOG_RATIO_COL]].isna().mean().mean()),
         "duplicate_rows_embedding_region_label": int(df.duplicated(subset=EMBEDDING_COLS + ["region", "dw_label"]).sum()),
         "near_constant_embedding_dims": int((feature_variances < 1e-4).sum()),
         "high_corr_feature_pairs_abs_gt_0_95": int(np.triu((corr > 0.95).to_numpy(), k=1).sum()),
         "targets": {},
     }
-    for target in TARGET_COLS:
+    for target in TARGET_COLS + [LINEAR_RATIO_COL, LOG_RATIO_COL]:
         series = df[target]
         audit["targets"][target] = {
             "mean": float(series.mean()),
@@ -415,6 +644,7 @@ def audit_dataset(df: pd.DataFrame) -> Dict[str, Any]:
 def main() -> None:
     ensure_output_dirs()
     full_df = assign_spatial_blocks(load_dataset())
+    full_df, ratio_target_space = add_ratio_targets(full_df)
     audit_dataset(full_df)
 
     feature_frames = build_feature_frames(full_df)
@@ -433,6 +663,12 @@ def main() -> None:
     stability_frames: List[pd.DataFrame] = []
     regional_frames: List[pd.DataFrame] = []
     land_use_frames: List[pd.DataFrame] = []
+    polarization_metrics_rows: List[Dict[str, Any]] = []
+    polarization_regional_frames: List[pd.DataFrame] = []
+    polarization_land_use_frames: List[pd.DataFrame] = []
+    ratio_metrics_rows: List[Dict[str, Any]] = []
+    ratio_regional_frames: List[pd.DataFrame] = []
+    ratio_land_use_frames: List[pd.DataFrame] = []
 
     experiment_start = time.time()
 
@@ -453,11 +689,22 @@ def main() -> None:
             train_metrics = evaluate_predictions(y_train, y_train_pred)
             test_metrics = evaluate_predictions(y_test, y_test_pred)
             stability_summary = stability_df.agg({"r2": ["mean", "std"], "rmse": ["mean", "std"], "mae": ["mean", "std"]})
+            model_label = f"LightGBM ({FEATURE_LABELS[feature_set]})"
+            prediction_path = save_test_predictions(
+                test_df,
+                feature_set,
+                target,
+                y_test,
+                y_test_pred,
+                model_label=model_label,
+            )
 
             metrics_rows.append(
                 {
                     "feature_set": feature_set,
                     "target": target,
+                    "model_name": "lightgbm",
+                    "model_label": model_label,
                     "train_r2": train_metrics["r2"],
                     "train_rmse": train_metrics["rmse"],
                     "train_mae": train_metrics["mae"],
@@ -476,27 +723,246 @@ def main() -> None:
                     "rmse": test_metrics["rmse"],
                     "mae": test_metrics["mae"],
                     "pearson_r": test_metrics["pearson_r"],
+                    "prediction_file": prediction_path.name,
                 }
             )
 
             save_feature_importance(feature_set, target, model, X_test, y_test)
-            save_predicted_vs_actual_plot(feature_set, target, y_test, y_test_pred, test_metrics)
-            save_residual_histogram(feature_set, target, y_test, y_test_pred)
-            save_test_predictions(test_df, feature_set, target, y_test, y_test_pred)
+            save_predicted_vs_actual_plot(feature_set, target, y_test, y_test_pred, test_metrics, title_label=model_label)
+            save_residual_histogram(feature_set, target, y_test, y_test_pred, title_label=model_label)
 
-            region_df, land_use_df = subgroup_metrics(test_df, feature_set, target, y_test, y_test_pred)
+            region_df, land_use_df = subgroup_metrics(
+                test_df,
+                feature_set,
+                target,
+                y_test,
+                y_test_pred,
+                model_label=model_label,
+            )
             regional_frames.append(region_df)
             land_use_frames.append(land_use_df)
 
+    lightgbm_lookup = {
+        (row["feature_set"], row["target"]): row
+        for row in metrics_rows
+        if row["model_name"] == "lightgbm"
+    }
+
+    for feature_set, X_full in feature_frames.items():
+        X_train = X_full.loc[train_idx].reset_index(drop=True)
+        X_test = X_full.loc[test_idx].reset_index(drop=True)
+
+        ridge_vv = train_ridge_model(X_train, train_df["S1_VV"])
+        row, region_df, land_use_df = evaluate_experiment(
+            test_df,
+            feature_set,
+            "S1_VV",
+            model_name="ridge_vv",
+            model_label=f"Ridge (VV) [{FEATURE_LABELS[feature_set]}]",
+            training_target="S1_VV",
+            y_train_true=train_df["S1_VV"],
+            y_train_pred=ridge_vv.predict(X_train),
+            y_test_true=test_df["S1_VV"],
+            y_test_pred=ridge_vv.predict(X_test),
+            best_params=ridge_params(),
+            save_artifacts=False,
+        )
+        polarization_metrics_rows.append(row)
+        polarization_regional_frames.append(region_df)
+        polarization_land_use_frames.append(land_use_df)
+
+        ridge_vh = train_ridge_model(X_train, train_df["S1_VH"])
+        row, region_df, land_use_df = evaluate_experiment(
+            test_df,
+            feature_set,
+            "S1_VH",
+            model_name="ridge_vh",
+            model_label=f"Ridge (VH) [{FEATURE_LABELS[feature_set]}]",
+            training_target="S1_VH",
+            y_train_true=train_df["S1_VH"],
+            y_train_pred=ridge_vh.predict(X_train),
+            y_test_true=test_df["S1_VH"],
+            y_test_pred=ridge_vh.predict(X_test),
+            best_params=ridge_params(),
+            save_artifacts=False,
+        )
+        polarization_metrics_rows.append(row)
+        polarization_regional_frames.append(region_df)
+        polarization_land_use_frames.append(land_use_df)
+
+        ridge_diff = train_ridge_model(X_train, train_df[POLARIZATION_DIFF_TARGET])
+        row, region_df, land_use_df = evaluate_experiment(
+            test_df,
+            feature_set,
+            POLARIZATION_DIFF_TARGET,
+            model_name="ridge_polarization_difference",
+            model_label=f"Ridge (VV-VH) [{FEATURE_LABELS[feature_set]}]",
+            training_target=POLARIZATION_DIFF_TARGET,
+            y_train_true=train_df[POLARIZATION_DIFF_TARGET],
+            y_train_pred=ridge_diff.predict(X_train),
+            y_test_true=test_df[POLARIZATION_DIFF_TARGET],
+            y_test_pred=ridge_diff.predict(X_test),
+            best_params=ridge_params(),
+        )
+        polarization_metrics_rows.append(row)
+        polarization_regional_frames.append(region_df)
+        polarization_land_use_frames.append(land_use_df)
+
+        lightgbm_row = lightgbm_lookup[(feature_set, POLARIZATION_DIFF_TARGET)]
+        polarization_metrics_rows.append(
+            {
+                "feature_set": feature_set,
+                "target": POLARIZATION_DIFF_TARGET,
+                "training_target": POLARIZATION_DIFF_TARGET,
+                "model_name": "lightgbm_polarization_difference",
+                "model_label": f"LightGBM (VV-VH) [{FEATURE_LABELS[feature_set]}]",
+                "train_r2": lightgbm_row["train_r2"],
+                "train_rmse": lightgbm_row["train_rmse"],
+                "train_mae": lightgbm_row["train_mae"],
+                "r2": lightgbm_row["r2"],
+                "rmse": lightgbm_row["rmse"],
+                "mae": lightgbm_row["mae"],
+                "pearson_r": lightgbm_row["pearson_r"],
+                "best_params": lightgbm_row["best_params"],
+                "prediction_file": lightgbm_row["prediction_file"],
+            }
+        )
+
+        struct_train_pred = ridge_vv.predict(X_train) - ridge_vh.predict(X_train)
+        struct_test_pred = ridge_vv.predict(X_test) - ridge_vh.predict(X_test)
+        row, region_df, land_use_df = evaluate_experiment(
+            test_df,
+            feature_set,
+            POLARIZATION_DIFF_TARGET,
+            model_name="ridge_structural_polarization_difference",
+            model_label=f"Structural baseline (VV_hat - VH_hat) [{FEATURE_LABELS[feature_set]}]",
+            training_target="S1_VV+S1_VH",
+            y_train_true=train_df[POLARIZATION_DIFF_TARGET],
+            y_train_pred=struct_train_pred,
+            y_test_true=test_df[POLARIZATION_DIFF_TARGET],
+            y_test_pred=struct_test_pred,
+            best_params=ridge_params(),
+        )
+        polarization_metrics_rows.append(row)
+        polarization_regional_frames.append(region_df)
+        polarization_land_use_frames.append(land_use_df)
+
+    for feature_set, X_full in feature_frames.items():
+        X_train = X_full.loc[train_idx].reset_index(drop=True)
+        X_test = X_full.loc[test_idx].reset_index(drop=True)
+        y_ratio_train = train_df[LINEAR_RATIO_COL]
+        y_ratio_test = test_df[LINEAR_RATIO_COL]
+        y_log_train = train_df[LOG_RATIO_COL]
+
+        ridge_direct = train_ridge_model(X_train, y_ratio_train)
+        ratio_row, region_df, land_use_df = evaluate_ratio_baseline(
+            test_df,
+            feature_set,
+            model_name="ridge_direct_ratio",
+            model_label=f"Ridge direct ratio ({FEATURE_LABELS[feature_set]})",
+            training_target=LINEAR_RATIO_COL,
+            y_train_true=y_ratio_train,
+            y_train_pred=ridge_direct.predict(X_train),
+            y_test_true=y_ratio_test,
+            y_test_pred=ridge_direct.predict(X_test),
+            best_params=ridge_params(),
+        )
+        ratio_metrics_rows.append(ratio_row)
+        ratio_regional_frames.append(region_df)
+        ratio_land_use_frames.append(land_use_df)
+
+        log_ratio_model = train_log_ratio_model(X_train, y_log_train)
+        ratio_row, region_df, land_use_df = evaluate_ratio_baseline(
+            test_df,
+            feature_set,
+            model_name="ridge_log_ratio",
+            model_label=f"Ridge log-ratio ({FEATURE_LABELS[feature_set]})",
+            training_target=LOG_RATIO_COL,
+            y_train_true=y_ratio_train,
+            y_train_pred=np.exp(log_ratio_model.predict(X_train)),
+            y_test_true=y_ratio_test,
+            y_test_pred=np.exp(log_ratio_model.predict(X_test)),
+            best_params=ridge_params(),
+        )
+        ratio_metrics_rows.append(ratio_row)
+        ratio_regional_frames.append(region_df)
+        ratio_land_use_frames.append(land_use_df)
+
+        ratio_gbdt, ratio_gbdt_params, _ = tune_lightgbm(
+            feature_set,
+            LINEAR_RATIO_COL,
+            X_train,
+            y_ratio_train,
+            strat_labels,
+            groups,
+        )
+        y_train_ratio_gbdt = ratio_gbdt.predict(X_train)
+        y_test_ratio_gbdt = ratio_gbdt.predict(X_test)
+        save_feature_importance(
+            feature_set,
+            LINEAR_RATIO_COL,
+            ratio_gbdt,
+            X_test,
+            y_ratio_test,
+            model_name="lightgbm_direct_ratio",
+        )
+        ratio_row, region_df, land_use_df = evaluate_ratio_baseline(
+            test_df,
+            feature_set,
+            model_name="lightgbm_direct_ratio",
+            model_label=f"LightGBM direct ratio ({FEATURE_LABELS[feature_set]})",
+            training_target=LINEAR_RATIO_COL,
+            y_train_true=y_ratio_train,
+            y_train_pred=y_train_ratio_gbdt,
+            y_test_true=y_ratio_test,
+            y_test_pred=y_test_ratio_gbdt,
+            best_params=ratio_gbdt_params,
+        )
+        ratio_metrics_rows.append(ratio_row)
+        ratio_regional_frames.append(region_df)
+        ratio_land_use_frames.append(land_use_df)
+
+        vv_ridge = train_ridge_model(X_train, train_df["S1_VV"])
+        vh_ridge = train_ridge_model(X_train, train_df["S1_VH"])
+        train_struct_ratio, _, _ = compute_stable_ratio_targets(vv_ridge.predict(X_train), vh_ridge.predict(X_train))
+        test_struct_ratio, _, _ = compute_stable_ratio_targets(vv_ridge.predict(X_test), vh_ridge.predict(X_test))
+        ratio_row, region_df, land_use_df = evaluate_ratio_baseline(
+            test_df,
+            feature_set,
+            model_name="ridge_structural_ratio",
+            model_label=f"Ridge structural ratio ({FEATURE_LABELS[feature_set]})",
+            training_target="S1_VV+S1_VH",
+            y_train_true=y_ratio_train,
+            y_train_pred=train_struct_ratio,
+            y_test_true=y_ratio_test,
+            y_test_pred=test_struct_ratio,
+            best_params=ridge_params(),
+        )
+        ratio_metrics_rows.append(ratio_row)
+        ratio_regional_frames.append(region_df)
+        ratio_land_use_frames.append(land_use_df)
+
     metrics_df = pd.DataFrame(metrics_rows).sort_values(["target", "r2"], ascending=[True, False])
     stability_df = pd.concat(stability_frames, ignore_index=True).sort_values(["target", "feature_set", "seed", "fold"])
-    regional_df = pd.concat(regional_frames, ignore_index=True).sort_values(["target", "feature_set", "region"])
-    land_use_df = pd.concat(land_use_frames, ignore_index=True).sort_values(["target", "feature_set", "dw_label_name"])
+    regional_df = pd.concat(regional_frames, ignore_index=True).sort_values(["target", "feature_set", "model_name", "region"])
+    land_use_df = pd.concat(land_use_frames, ignore_index=True).sort_values(["target", "feature_set", "model_name", "dw_label_name"])
+    polarization_metrics_df = pd.DataFrame(polarization_metrics_rows).sort_values(["feature_set", "target", "r2"], ascending=[True, True, False])
+    polarization_regional_df = pd.concat(polarization_regional_frames, ignore_index=True).sort_values(["feature_set", "target", "model_name", "region"])
+    polarization_land_use_df = pd.concat(polarization_land_use_frames, ignore_index=True).sort_values(["feature_set", "target", "model_name", "dw_label_name"])
+    ratio_metrics_df = pd.DataFrame(ratio_metrics_rows).sort_values(["feature_set", "r2"], ascending=[True, False])
+    ratio_regional_df = pd.concat(ratio_regional_frames, ignore_index=True).sort_values(["feature_set", "model_name", "region"])
+    ratio_land_use_df = pd.concat(ratio_land_use_frames, ignore_index=True).sort_values(["feature_set", "model_name", "dw_label_name"])
 
     metrics_df.to_csv(OUTPUT_DIR / "full_dataset_lightgbm_metrics.csv", index=False)
     stability_df.to_csv(OUTPUT_DIR / "full_dataset_lightgbm_stability.csv", index=False)
     regional_df.to_csv(OUTPUT_DIR / "full_dataset_lightgbm_regional_metrics.csv", index=False)
     land_use_df.to_csv(OUTPUT_DIR / "full_dataset_lightgbm_land_use_metrics.csv", index=False)
+    polarization_metrics_df.to_csv(OUTPUT_DIR / "full_dataset_polarization_difference_metrics.csv", index=False)
+    polarization_regional_df.to_csv(OUTPUT_DIR / "full_dataset_polarization_difference_regional_metrics.csv", index=False)
+    polarization_land_use_df.to_csv(OUTPUT_DIR / "full_dataset_polarization_difference_land_use_metrics.csv", index=False)
+    ratio_metrics_df.to_csv(OUTPUT_DIR / "full_dataset_ratio_baseline_metrics.csv", index=False)
+    ratio_regional_df.to_csv(OUTPUT_DIR / "full_dataset_ratio_baseline_regional_metrics.csv", index=False)
+    ratio_land_use_df.to_csv(OUTPUT_DIR / "full_dataset_ratio_baseline_land_use_metrics.csv", index=False)
     (OUTPUT_DIR / "experiment_metadata.json").write_text(
         json.dumps(
             {
@@ -506,6 +972,11 @@ def main() -> None:
                 "test_rows": int(len(test_df)),
                 "feature_sets": list(feature_frames.keys()),
                 "targets": TARGET_COLS,
+                "ratio_target": LINEAR_RATIO_COL,
+                "log_ratio_target": LOG_RATIO_COL,
+                "ratio_target_space": ratio_target_space,
+                "ratio_epsilon": RATIO_EPSILON,
+                "ridge_alpha": RIDGE_ALPHA,
                 "spatial_bins_per_axis": SPATIAL_BINS_PER_AXIS,
                 "optuna_trials": OPTUNA_TRIALS,
                 "stability_seeds": STABILITY_SEEDS,
@@ -519,6 +990,19 @@ def main() -> None:
     print("Saved stability results to:", OUTPUT_DIR / "full_dataset_lightgbm_stability.csv")
     print("Saved regional metrics to:", OUTPUT_DIR / "full_dataset_lightgbm_regional_metrics.csv")
     print("Saved land-use metrics to:", OUTPUT_DIR / "full_dataset_lightgbm_land_use_metrics.csv")
+    print("Saved polarization difference metrics to:", OUTPUT_DIR / "full_dataset_polarization_difference_metrics.csv")
+    print("Polarization Difference Experiments")
+    print("-----------------------------------")
+    print(
+        polarization_metrics_df[
+            ["feature_set", "model_label", "target", "training_target", "r2", "rmse", "mae", "pearson_r"]
+        ].to_string(index=False)
+    )
+    print("Saved ratio baseline metrics to:", OUTPUT_DIR / "full_dataset_ratio_baseline_metrics.csv")
+    print(
+        ratio_metrics_df[["feature_set", "model_label", "training_target", "r2", "rmse", "mae", "pearson_r"]]
+        .to_string(index=False)
+    )
 
 
 if __name__ == "__main__":

@@ -1,0 +1,73 @@
+feature_set,target,model_name,model_label,dw_label_name,r2,rmse,mae,pearson_r,n_test
+embedding_only,S1_VV_div_VH_linear,lightgbm_direct_ratio,LightGBM direct ratio (Embeddings only),bare,0.45432342987352725,2.137556069328133,1.4314798516684322,0.6911089589807349,96
+embedding_only,S1_VV_div_VH_linear,lightgbm_direct_ratio,LightGBM direct ratio (Embeddings only),built,0.17585799410231595,7.239727216756668,2.415750758584105,0.49286089924613063,96
+embedding_only,S1_VV_div_VH_linear,lightgbm_direct_ratio,LightGBM direct ratio (Embeddings only),crops,0.4259501398383294,1.7201880851807045,1.2604849532532683,0.6573964694170299,96
+embedding_only,S1_VV_div_VH_linear,lightgbm_direct_ratio,LightGBM direct ratio (Embeddings only),flooded_vegetation,0.5049545815627869,1.381947245650138,0.8300818277515841,0.7467041082408561,96
+embedding_only,S1_VV_div_VH_linear,lightgbm_direct_ratio,LightGBM direct ratio (Embeddings only),grass,0.5919031495498217,1.4247624098758807,0.9408699967796772,0.7765809583320616,96
+embedding_only,S1_VV_div_VH_linear,lightgbm_direct_ratio,LightGBM direct ratio (Embeddings only),shrub_and_scrub,-0.1059576695958524,1.581993146307526,1.1126505967584077,0.43535037003424887,96
+embedding_only,S1_VV_div_VH_linear,lightgbm_direct_ratio,LightGBM direct ratio (Embeddings only),snow_and_ice,0.4902393693536211,2.54135102906218,1.5990510595670415,0.7202364733461777,96
+embedding_only,S1_VV_div_VH_linear,lightgbm_direct_ratio,LightGBM direct ratio (Embeddings only),trees,0.2576500049182413,0.6816690713833078,0.5135952527129172,0.6606981630938398,96
+embedding_only,S1_VV_div_VH_linear,lightgbm_direct_ratio,LightGBM direct ratio (Embeddings only),water,0.7022346230213473,5.2101236039904455,3.417795021315516,0.83925869968699,96
+embedding_only,S1_VV_div_VH_linear,ridge_direct_ratio,Ridge direct ratio (Embeddings only),bare,0.3560784345879354,2.32202209042036,1.6468186349314482,0.5993814132528628,96
+embedding_only,S1_VV_div_VH_linear,ridge_direct_ratio,Ridge direct ratio (Embeddings only),built,0.2930317286584805,6.705345175978486,2.327397250813538,0.5953518399005877,96
+embedding_only,S1_VV_div_VH_linear,ridge_direct_ratio,Ridge direct ratio (Embeddings only),crops,0.5311417930568316,1.554611545239082,1.1988276451184503,0.7303182775006313,96
+embedding_only,S1_VV_div_VH_linear,ridge_direct_ratio,Ridge direct ratio (Embeddings only),flooded_vegetation,0.3835343670625355,1.5421384908110465,1.065478960444966,0.6797059510872738,96
+embedding_only,S1_VV_div_VH_linear,ridge_direct_ratio,Ridge direct ratio (Embeddings only),grass,0.5443856909414562,1.505426319089276,1.1151945495597984,0.7522356164336362,96
+embedding_only,S1_VV_div_VH_linear,ridge_direct_ratio,Ridge direct ratio (Embeddings only),shrub_and_scrub,-0.004467118893223931,1.507659288473816,1.2221426394151613,0.5103172523438311,96
+embedding_only,S1_VV_div_VH_linear,ridge_direct_ratio,Ridge direct ratio (Embeddings only),snow_and_ice,0.4371118856830333,2.670499804188929,1.7210393060229328,0.6719815102547548,96
+embedding_only,S1_VV_div_VH_linear,ridge_direct_ratio,Ridge direct ratio (Embeddings only),trees,-1.1619106617617576,1.1632902988358056,0.9043178043271006,0.6100174345974456,96
+embedding_only,S1_VV_div_VH_linear,ridge_direct_ratio,Ridge direct ratio (Embeddings only),water,0.4958462462522095,6.7794182788976975,4.858493936851076,0.7148117206515998,96
+embedding_only,S1_VV_div_VH_linear,ridge_log_ratio,Ridge log-ratio (Embeddings only),bare,0.43910863844296166,2.1671513246433665,1.388444648218912,0.6863137979050911,96
+embedding_only,S1_VV_div_VH_linear,ridge_log_ratio,Ridge log-ratio (Embeddings only),built,0.20492563735646785,7.110907881028114,2.0456826032074304,0.5824349379702274,96
+embedding_only,S1_VV_div_VH_linear,ridge_log_ratio,Ridge log-ratio (Embeddings only),crops,0.5755393185332569,1.4791760316573055,1.046110653937627,0.7841425428108323,96
+embedding_only,S1_VV_div_VH_linear,ridge_log_ratio,Ridge log-ratio (Embeddings only),flooded_vegetation,0.5345969023825614,1.3399345226731978,0.7457572976421148,0.7495621847027673,96
+embedding_only,S1_VV_div_VH_linear,ridge_log_ratio,Ridge log-ratio (Embeddings only),grass,0.5659599319245825,1.469351627569662,0.9476212653638331,0.7809623127902577,96
+embedding_only,S1_VV_div_VH_linear,ridge_log_ratio,Ridge log-ratio (Embeddings only),shrub_and_scrub,0.3322998849758515,1.2292099607004054,0.9354107119167395,0.5975067481513594,96
+embedding_only,S1_VV_div_VH_linear,ridge_log_ratio,Ridge log-ratio (Embeddings only),snow_and_ice,0.4420470534064843,2.6587671176841194,1.5481345098120354,0.7030973544716905,96
+embedding_only,S1_VV_div_VH_linear,ridge_log_ratio,Ridge log-ratio (Embeddings only),trees,0.37419522064749,0.6258765392355358,0.4738473442912787,0.6849035445588321,96
+embedding_only,S1_VV_div_VH_linear,ridge_log_ratio,Ridge log-ratio (Embeddings only),water,0.551736884382763,6.392598522556686,3.9589196212435476,0.7831861097215476,96
+embedding_only,S1_VV_div_VH_linear,ridge_structural_ratio,Ridge structural ratio (Embeddings only),bare,0.4391086384429622,2.167151324643365,1.3884446482189123,0.6863137979050911,96
+embedding_only,S1_VV_div_VH_linear,ridge_structural_ratio,Ridge structural ratio (Embeddings only),built,0.2049256373564674,7.110907881028115,2.04568260320743,0.5824349379702266,96
+embedding_only,S1_VV_div_VH_linear,ridge_structural_ratio,Ridge structural ratio (Embeddings only),crops,0.5755393185332579,1.479176031657304,1.0461106539376275,0.7841425428108321,96
+embedding_only,S1_VV_div_VH_linear,ridge_structural_ratio,Ridge structural ratio (Embeddings only),flooded_vegetation,0.5345969023825625,1.3399345226731962,0.7457572976421146,0.7495621847027676,96
+embedding_only,S1_VV_div_VH_linear,ridge_structural_ratio,Ridge structural ratio (Embeddings only),grass,0.5659599319245834,1.4693516275696605,0.9476212653638326,0.7809623127902576,96
+embedding_only,S1_VV_div_VH_linear,ridge_structural_ratio,Ridge structural ratio (Embeddings only),shrub_and_scrub,0.33229988497585017,1.2292099607004066,0.9354107119167407,0.5975067481513591,96
+embedding_only,S1_VV_div_VH_linear,ridge_structural_ratio,Ridge structural ratio (Embeddings only),snow_and_ice,0.44204705340648465,2.6587671176841186,1.548134509812037,0.7030973544716899,96
+embedding_only,S1_VV_div_VH_linear,ridge_structural_ratio,Ridge structural ratio (Embeddings only),trees,0.3741952206474888,0.6258765392355364,0.47384734429127856,0.6849035445588316,96
+embedding_only,S1_VV_div_VH_linear,ridge_structural_ratio,Ridge structural ratio (Embeddings only),water,0.5517368843827629,6.392598522556687,3.958919621243549,0.7831861097215477,96
+embedding_plus_context,S1_VV_div_VH_linear,lightgbm_direct_ratio,LightGBM direct ratio (Embeddings + region + Dynamic World),bare,0.5259223865342917,1.9923910671157852,1.3487953667635846,0.7403619502448302,96
+embedding_plus_context,S1_VV_div_VH_linear,lightgbm_direct_ratio,LightGBM direct ratio (Embeddings + region + Dynamic World),built,0.09033805898438108,7.606085273859754,2.4863247285631105,0.3260238527664723,96
+embedding_plus_context,S1_VV_div_VH_linear,lightgbm_direct_ratio,LightGBM direct ratio (Embeddings + region + Dynamic World),crops,0.5086780660559249,1.5914177723877851,1.192098562717314,0.7198822311385433,96
+embedding_plus_context,S1_VV_div_VH_linear,lightgbm_direct_ratio,LightGBM direct ratio (Embeddings + region + Dynamic World),flooded_vegetation,0.5367565730675945,1.3368219711294713,0.8649887992822555,0.7441897275154856,96
+embedding_plus_context,S1_VV_div_VH_linear,lightgbm_direct_ratio,LightGBM direct ratio (Embeddings + region + Dynamic World),grass,0.6560848723818316,1.3079359186273878,0.8667265350497176,0.820608209431728,96
+embedding_plus_context,S1_VV_div_VH_linear,lightgbm_direct_ratio,LightGBM direct ratio (Embeddings + region + Dynamic World),shrub_and_scrub,0.06178657078849448,1.4570892959442932,1.1151551840004665,0.49267907176873926,96
+embedding_plus_context,S1_VV_div_VH_linear,lightgbm_direct_ratio,LightGBM direct ratio (Embeddings + region + Dynamic World),snow_and_ice,0.4711782240911998,2.5884285203574553,1.6155855768235428,0.7009959796150134,96
+embedding_plus_context,S1_VV_div_VH_linear,lightgbm_direct_ratio,LightGBM direct ratio (Embeddings + region + Dynamic World),trees,0.3688866888711546,0.628525503735009,0.48669437231359747,0.693602520347898,96
+embedding_plus_context,S1_VV_div_VH_linear,lightgbm_direct_ratio,LightGBM direct ratio (Embeddings + region + Dynamic World),water,0.7034753442107595,5.199257567922444,3.450493782119245,0.8394728099847598,96
+embedding_plus_context,S1_VV_div_VH_linear,ridge_direct_ratio,Ridge direct ratio (Embeddings + region + Dynamic World),bare,0.37102395859699655,2.2949166317907,1.7201941041406468,0.6304965686230097,96
+embedding_plus_context,S1_VV_div_VH_linear,ridge_direct_ratio,Ridge direct ratio (Embeddings + region + Dynamic World),built,0.28216324966688267,6.756690439883594,2.306407678828031,0.588423992495984,96
+embedding_plus_context,S1_VV_div_VH_linear,ridge_direct_ratio,Ridge direct ratio (Embeddings + region + Dynamic World),crops,0.5419762414193923,1.5365444582520744,1.1756795515036595,0.7387000204446202,96
+embedding_plus_context,S1_VV_div_VH_linear,ridge_direct_ratio,Ridge direct ratio (Embeddings + region + Dynamic World),flooded_vegetation,0.40820681778827983,1.510963316699494,1.0624885886935165,0.6862957790394398,96
+embedding_plus_context,S1_VV_div_VH_linear,ridge_direct_ratio,Ridge direct ratio (Embeddings + region + Dynamic World),grass,0.5090624898251274,1.5626939643394666,1.1551603804163768,0.741910715089954,96
+embedding_plus_context,S1_VV_div_VH_linear,ridge_direct_ratio,Ridge direct ratio (Embeddings + region + Dynamic World),shrub_and_scrub,-0.12144391908353236,1.5930306270975014,1.2983713205932748,0.4882935805610593,96
+embedding_plus_context,S1_VV_div_VH_linear,ridge_direct_ratio,Ridge direct ratio (Embeddings + region + Dynamic World),snow_and_ice,0.4470123936082482,2.6469102165822926,1.677020777316477,0.6868355380162008,96
+embedding_plus_context,S1_VV_div_VH_linear,ridge_direct_ratio,Ridge direct ratio (Embeddings + region + Dynamic World),trees,-1.1374885720912542,1.1567010649577385,0.8887882092826537,0.6083806574256327,96
+embedding_plus_context,S1_VV_div_VH_linear,ridge_direct_ratio,Ridge direct ratio (Embeddings + region + Dynamic World),water,0.5227902035114796,6.595771513940254,4.726094373780021,0.7320824505488884,96
+embedding_plus_context,S1_VV_div_VH_linear,ridge_log_ratio,Ridge log-ratio (Embeddings + region + Dynamic World),bare,0.4647802812557569,2.1169759035940805,1.425915792374231,0.6913459061014375,96
+embedding_plus_context,S1_VV_div_VH_linear,ridge_log_ratio,Ridge log-ratio (Embeddings + region + Dynamic World),built,0.19286675122603958,7.164630484875066,2.083841811206308,0.5797918775302029,96
+embedding_plus_context,S1_VV_div_VH_linear,ridge_log_ratio,Ridge log-ratio (Embeddings + region + Dynamic World),crops,0.5674078984265727,1.493277152390368,1.0451248518463276,0.7816628775709997,96
+embedding_plus_context,S1_VV_div_VH_linear,ridge_log_ratio,Ridge log-ratio (Embeddings + region + Dynamic World),flooded_vegetation,0.5373891818451233,1.3359088721197065,0.7608965756706314,0.7540218359292001,96
+embedding_plus_context,S1_VV_div_VH_linear,ridge_log_ratio,Ridge log-ratio (Embeddings + region + Dynamic World),grass,0.5656244288533957,1.4699194055154456,0.9356169921457859,0.7794632480394932,96
+embedding_plus_context,S1_VV_div_VH_linear,ridge_log_ratio,Ridge log-ratio (Embeddings + region + Dynamic World),shrub_and_scrub,0.31112136689391845,1.248552195155164,0.9305506043765096,0.5823250098288466,96
+embedding_plus_context,S1_VV_div_VH_linear,ridge_log_ratio,Ridge log-ratio (Embeddings + region + Dynamic World),snow_and_ice,0.4419764070995553,2.6589354348636323,1.5518269877130884,0.7139501724890782,96
+embedding_plus_context,S1_VV_div_VH_linear,ridge_log_ratio,Ridge log-ratio (Embeddings + region + Dynamic World),trees,0.3899780141413548,0.6179338390902033,0.4652628164951147,0.6903101600954694,96
+embedding_plus_context,S1_VV_div_VH_linear,ridge_log_ratio,Ridge log-ratio (Embeddings + region + Dynamic World),water,0.57547452145007,6.221037332069459,3.877146830514299,0.7920438184703018,96
+embedding_plus_context,S1_VV_div_VH_linear,ridge_structural_ratio,Ridge structural ratio (Embeddings + region + Dynamic World),bare,0.46478028125575743,2.116975903594079,1.4259157923742312,0.691345906101438,96
+embedding_plus_context,S1_VV_div_VH_linear,ridge_structural_ratio,Ridge structural ratio (Embeddings + region + Dynamic World),built,0.19286675122603902,7.16463048487507,2.083841811206309,0.579791877530202,96
+embedding_plus_context,S1_VV_div_VH_linear,ridge_structural_ratio,Ridge structural ratio (Embeddings + region + Dynamic World),crops,0.5674078984265737,1.4932771523903663,1.045124851846327,0.7816628775709997,96
+embedding_plus_context,S1_VV_div_VH_linear,ridge_structural_ratio,Ridge structural ratio (Embeddings + region + Dynamic World),flooded_vegetation,0.537389181845124,1.3359088721197057,0.7608965756706315,0.7540218359292005,96
+embedding_plus_context,S1_VV_div_VH_linear,ridge_structural_ratio,Ridge structural ratio (Embeddings + region + Dynamic World),grass,0.5656244288533961,1.4699194055154448,0.9356169921457861,0.779463248039493,96
+embedding_plus_context,S1_VV_div_VH_linear,ridge_structural_ratio,Ridge structural ratio (Embeddings + region + Dynamic World),shrub_and_scrub,0.31112136689391834,1.248552195155164,0.9305506043765099,0.5823250098288466,96
+embedding_plus_context,S1_VV_div_VH_linear,ridge_structural_ratio,Ridge structural ratio (Embeddings + region + Dynamic World),snow_and_ice,0.441976407099556,2.658935434863631,1.5518269877130881,0.7139501724890782,96
+embedding_plus_context,S1_VV_div_VH_linear,ridge_structural_ratio,Ridge structural ratio (Embeddings + region + Dynamic World),trees,0.38997801414135436,0.6179338390902035,0.465262816495114,0.6903101600954691,96
+embedding_plus_context,S1_VV_div_VH_linear,ridge_structural_ratio,Ridge structural ratio (Embeddings + region + Dynamic World),water,0.5754745214500703,6.221037332069457,3.877146830514299,0.7920438184703018,96

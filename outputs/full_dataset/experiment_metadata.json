@@ -1,5 +1,5 @@
 {
-  "dataset_path": "DataSources/alphaearth_s1_dw_samples_all_regions_2024.csv",
+  "dataset_path": "/Users/cassius/Project-Workspace/Github-workspace/STSCI_5955/alphaearth-to-sar-cross-model-prediction/DataSources/alphaearth_s1_dw_samples_all_regions_2024.csv",
   "rows_used": 2880,
   "train_rows": 2016,
   "test_rows": 864,
@@ -12,6 +12,11 @@
     "S1_VH",
     "S1_VV_div_VH"
   ],
+  "ratio_target": "S1_VV_div_VH_linear",
+  "log_ratio_target": "S1_log_VV_div_VH",
+  "ratio_target_space": "linearized_db_ratio",
+  "ratio_epsilon": 1e-06,
+  "ridge_alpha": 1.0,
   "spatial_bins_per_axis": 4,
   "optuna_trials": 20,
   "stability_seeds": [
@@ -19,5 +24,5 @@
     52,
     62
   ],
-  "runtime_seconds": 743.66845703125
+  "runtime_seconds": 904.542965888977
 }
