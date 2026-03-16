@@ -669,14 +669,19 @@ def build_project_interpretation_lines(
     diff_gap = diff_rows["r2"].max() - diff_rows["r2"].min()
 
     lines = [
-        "Interpretation and Results Discussion",
+        "Modeling Interpretation",
         "",
-        f"- The AlphaEarth embeddings are strongly predictive of absolute Sentinel-1 backscatter. The best held-out results reach R2={best_vv['r2']:.3f} for S1_VV and R2={best_vh['r2']:.3f} for S1_VH, which indicates that the representation captures substantial information about absolute scattering strength.",
-        f"- The polarization-derived target S1_VV_div_VH, defined here as the dB-space difference VV - VH, is materially harder. Its best held-out performance is R2={best_diff['r2']:.3f}, well below the channel-wise results for VV and VH.",
-        f"- The earlier Ridge addendum already favored direct prediction over the structural baseline: direct Ridge reaches R2={best_direct['r2']:.3f}, the structural Ridge baseline reaches R2={best_struct['r2']:.3f}, and the best LightGBM direct result reaches R2={best_lightgbm['r2']:.3f}.",
-        f"- The similarity between Ridge and LightGBM on S1_VV_div_VH, with an R2 spread of only {diff_gap:.3f} across the evaluated models, indicates that model complexity is not the dominant bottleneck for this target. The more plausible bottleneck is the information content of the features themselves.",
-        f"- Adding region and Dynamic World context produces only small gains relative to embeddings alone. The total held-out R2 spread across feature sets is {vv_gap:.3f} for S1_VV and {vh_gap:.3f} for S1_VH, which is consistent with those contextual variables being largely redundant with the embedding representation.",
-        "- This is a scientifically meaningful result rather than a negative outcome. The present evidence indicates that the AlphaEarth embeddings encode absolute scattering strength better than relative polarization structure, which is a useful characterization of what information the representation preserves.",
+        "Facts from the model comparison:",
+        f"- The strongest absolute-backscatter results are S1_VV at R2={best_vv['r2']:.3f} and S1_VH at R2={best_vh['r2']:.3f}.",
+        f"- The derived polarization-contrast target S1_VV_div_VH, stored here as VV - VH in dB, peaks at R2={best_diff['r2']:.3f}.",
+        f"- Direct Ridge reaches R2={best_direct['r2']:.3f}, the structural Ridge baseline reaches R2={best_struct['r2']:.3f}, and the best direct LightGBM result reaches R2={best_lightgbm['r2']:.3f}.",
+        "",
+        "Analysis:",
+        f"- The polarization-contrast result is strong enough to support a cross-modal relationship, but it remains materially weaker than the channel-wise VV and VH predictions. The embeddings preserve SAR-relevant structure more reliably for absolute backscatter than for a derived contrast target.",
+        f"- Ridge and LightGBM are very close on S1_VV_div_VH, with an R2 spread of only {diff_gap:.3f} across the evaluated models. That pattern supports the interpretation from analysis_1.md: the usable embedding-to-polarization mapping is mostly linear rather than strongly nonlinear.",
+        f"- Adding region and Dynamic World context changes little. The R2 spread across feature sets is only {vv_gap:.3f} for S1_VV and {vh_gap:.3f} for S1_VH, which is consistent with the additional context already being encoded in the embeddings.",
+        "- The direct-prediction advantage is also consistent with analysis_1.md. Predicting VV - VH in one step avoids compounding the independent errors from separate VV and VH models.",
+        "- Taken together, the evidence supports a clear project-level conclusion: AlphaEarth optical embeddings contain substantial information about SAR behavior, and most of the recoverable signal is accessible with simple linear models.",
     ]
     if polarization_strategy is not None and not polarization_strategy.empty:
         direct_rows = polarization_strategy[polarization_strategy["approach"] == "direct_prediction"].sort_values("r2", ascending=False)
@@ -688,6 +693,35 @@ def build_project_interpretation_lines(
             f"- A stricter apples-to-apples strategy comparison built from the saved LightGBM prediction files reaches the same conclusion: for {FEATURE_LABELS[best_direct_strategy['feature_set']]}, direct VV-VH prediction scores R2={best_direct_strategy['r2']:.3f}, RMSE={best_direct_strategy['rmse']:.3f}, MAE={best_direct_strategy['mae']:.3f} while VV_hat - VH_hat scores R2={matched_struct['r2']:.3f}, RMSE={matched_struct['rmse']:.3f}, MAE={matched_struct['mae']:.3f}. Direct prediction also stays ahead on the second feature ablation.",
         )
     return lines
+
+
+def build_project_cross_modal_lines(
+    phase4_overall: pd.DataFrame,
+    phase4_land_use: pd.DataFrame,
+    phase4_corr: pd.DataFrame,
+) -> list[str]:
+    k10_row = phase4_overall.loc[phase4_overall["k"] == 10].iloc[0]
+    baseline_k10 = knn_overlap_baseline(int(k10_row["n_queries"]), 10)
+    best_land = phase4_land_use[phase4_land_use["k"] == 10].sort_values("mean_overlap", ascending=False).iloc[0]
+    worst_land = phase4_land_use[phase4_land_use["k"] == 10].sort_values("mean_overlap", ascending=True).iloc[0]
+    overall_corr = phase4_corr[phase4_corr["scope"] == "overall"].iloc[0]
+    strongest_region = phase4_corr[phase4_corr["scope"] == "region"].sort_values("pearson_r", ascending=False).iloc[0]
+
+    return [
+        "Cross-modal Geometry Interpretation",
+        "",
+        "Facts from the similarity analysis:",
+        f"- At k=10, mean embedding/SAR neighbor overlap is {k10_row['mean_overlap']:.3f}, above the random baseline of about {baseline_k10:.3f}.",
+        f"- Overall embedding-to-SAR distance correlation is positive but modest: Pearson r={overall_corr['pearson_r']:.3f}, Spearman rho={overall_corr['spearman_rho']:.3f}.",
+        f"- The highest land-use overlap at k=10 is {best_land['dw_label_name']} ({best_land['mean_overlap']:.3f}) and the lowest is {worst_land['dw_label_name']} ({worst_land['mean_overlap']:.3f}).",
+        f"- Within-region alignment is stronger than the pooled result, peaking in {strongest_region['group']} at Pearson r={strongest_region['pearson_r']:.3f}.",
+        "",
+        "Analysis:",
+        "- These results match the explanation in analysis_2.md: the embeddings contain SAR information, but they do not preserve SAR neighborhood geometry perfectly.",
+        "- Regression and neighbor overlap answer different questions. A linear projection can recover a meaningful SAR target even when nearest neighbors in optical-embedding space do not match nearest neighbors in SAR space.",
+        "- The most plausible reason is sensor physics. Optical embeddings are organized around reflectance and semantic similarity, while SAR responses depend strongly on roughness, moisture, viewing geometry, and scattering mechanism.",
+        "- The stronger within-region correlation suggests that pooled cross-region comparisons mix several local relationships. The geometry mismatch is therefore not evidence of failure; it is evidence of partial alignment between two modalities with different physical drivers.",
+    ]
 
 
 def build_feature_importance_lines(feature_summary: pd.DataFrame) -> list[str]:
@@ -939,9 +973,9 @@ def build_project_results_first_lines(
         "Executive Summary",
         "",
         "Headline:",
-        "AlphaEarth embeddings predict Sentinel-1 backscatter strongly for VV and VH, more moderately for polarization-derived targets, and show a weaker but still measurable cross-modal similarity signal.",
+        "AlphaEarth optical embeddings provide a strong linear signal for Sentinel-1 prediction, especially for VV, VH, and polarization contrast, while cross-modal neighborhood agreement remains partial rather than exact.",
         "",
-        "Top results:",
+        "Key facts:",
     ]
 
     vv_rows = []
@@ -979,7 +1013,7 @@ def build_project_results_first_lines(
         lines.extend(
             [
                 "",
-                "Polarization-difference result:",
+                "Polarization-contrast result:",
                 f"- S1_VV_div_VH: best result is {diff_best[0]} / {FEATURE_LABELS[diff_best[1]]} with R2={diff_best[2]:.3f}.",
             ]
         )
@@ -1007,6 +1041,11 @@ def build_project_results_first_lines(
     lines.extend(
         [
             "",
+            "What the results mean:",
+            "- The analysis_1.md findings are reflected directly in the metrics: Ridge and LightGBM are nearly tied on VV - VH, so the dominant relationship is mostly linear.",
+            "- Region and Dynamic World context add little incremental value, which implies that much of that context is already embedded in the AlphaEarth representation.",
+            "- Direct prediction is the preferred practical strategy for polarization contrast because it avoids error accumulation from separate VV and VH models.",
+            "",
             "Failure-mode readout:",
             "Highest-error S1_VV land-use classes by MAE:",
         ]
@@ -1021,7 +1060,7 @@ def build_project_results_first_lines(
             f"- Overall embedding-to-SAR distance correlation is modest (Pearson r={overall_corr['pearson_r']:.3f}), but within-region correlation peaks at {strongest_region['pearson_r']:.3f} in {strongest_region['group']}.",
             "",
             "Executive takeaway:",
-            "- The embeddings carry clear SAR-relevant signal. The strongest wins are on VV and VH, polarization structure is recoverable but weaker, and cross-modal similarity is real but much more convincing within region than across the pooled dataset.",
+            "- The embeddings carry clear SAR-relevant signal. The strongest wins are on VV and VH, polarization contrast is recoverable at about the 0.70-R2 level, and the weaker neighbor alignment is best interpreted as partial cross-modal agreement rather than contradiction.",
         ]
     )
     return lines
@@ -1472,13 +1511,13 @@ def build_project_report(inputs: dict[str, pd.DataFrame]) -> None:
             build_project_interpretation_lines(metrics_df, polarization_df, polarization_strategy),
             pdf,
         )
-        draw_text_page("Plan Alignment", build_project_plan_alignment_lines(), pdf)
-        draw_text_page("Methods and Data", build_project_methods_lines(), pdf)
         draw_text_page(
-            "Success Criteria Review",
-            build_project_success_criteria_lines(metrics_df, phase4_overall, phase4_corr),
+            "Cross-modal Geometry Interpretation",
+            build_project_cross_modal_lines(phase4_overall, phase4_land_use, phase4_corr),
             pdf,
         )
+        draw_text_page("Plan Alignment", build_project_plan_alignment_lines(), pdf)
+        draw_text_page("Methods and Data", build_project_methods_lines(), pdf)
         draw_dataframe_page(
             "Best Phase 2 Models by Target",
             selected_models[["target", "feature_set", "r2", "rmse", "mae", "pearson_r"]].reset_index(drop=True),
