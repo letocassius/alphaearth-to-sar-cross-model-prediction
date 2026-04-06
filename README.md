@@ -35,6 +35,33 @@ The current workflow uses the full balanced dataset of 2,880 samples and reports
 5. `scripts/build_project_reports.py`
    Regenerates the phase PDFs and the combined executive summary report.
 
+## Repository Layout
+
+- `DataSources/`
+  Raw and merged CSV inputs used by the offline workflow.
+- `scripts/`
+  Analysis and report-generation entrypoints, organized by project phase.
+- `outputs/full_dataset/`
+  Machine-readable results, figures, and intermediate report artifacts for the full 2,880-sample dataset.
+- `reports/`
+  Human-facing deliverables.
+  Includes the phase PDFs, the combined PDF summary, and the consolidated markdown report `final_report.md`.
+
+## Recommended Reading Order
+
+If you are new to the repository, start with:
+
+1. `reports/final_report.md`
+   Combined narrative summary of the failure-analysis and cross-modal-similarity findings.
+2. `reports/project_summary_report.pdf`
+   Executive PDF that summarizes modeling, failure modes, and cross-modal results.
+3. `outputs/full_dataset/phase3_summary.json`
+   Compact machine-readable summary of failure analysis.
+4. `outputs/full_dataset/phase4_summary.json`
+   Compact machine-readable summary of cross-modal similarity analysis.
+5. `scripts/build_project_reports.py`
+   Best entrypoint for understanding how the narrative reports are assembled from tabular outputs.
+
 ## Key Outputs
 
 Primary machine-readable outputs are written to `outputs/full_dataset/`.
