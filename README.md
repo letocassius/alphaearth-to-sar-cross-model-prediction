@@ -63,6 +63,7 @@ Bottom line:
 - `DataSources/`
   Committed CSV inputs used by the local workflow.
   Sentinel-2 context GeoTIFFs are expected here under `DataSources/sentinel2_context/` when regenerated locally.
+  Single-image experiment inputs are expected under `DataSources/single_image_pixel_fraction/`.
 - `scripts/`
   Local Python analysis and report-generation entrypoints, organized by project phase.
 - `outputs/full_dataset/`
@@ -81,6 +82,7 @@ Use this checklist before running anything:
 - Install `requirements.txt`
 - Confirm that `DataSources/alphaearth_s1_dw_samples_all_regions_2024.csv` exists if you want the standard downstream workflow
 - Confirm that `DataSources/sentinel2_context/*.tif` exists only if you want the full Phase 4 qualitative figure rather than the placeholder version
+- Confirm that `DataSources/single_image_pixel_fraction/sentinel2_alphaearth_pixel_pairs_2024_n5000.csv` and `DataSources/single_image_pixel_fraction/sentinel2_rgb_2024.tif` exist only if you want to rerun the single-image pixel-fraction experiment
 - Run scripts in the documented order; later phases depend on files produced by earlier phases
 - Treat `outputs/` and `reports/` as generated artifacts that can be overwritten by reruns
 
@@ -142,6 +144,11 @@ Run these in the Earth Engine Code Editor or adapt them to your preferred Earth 
   Reconstructed AlphaEarth-only convenience export over the same sampled points.
 - `gee/export_sentinel1_sar_2024.js`
   Reconstructed Sentinel-1-only convenience export over the same sampled points.
+- `gee/export_single_image_alphaearth_pixel_pairs.js`
+  Single-image Sentinel-2 plus AlphaEarth pairing workflow for the local pixel-fraction experiment.
+  Produces:
+  - `sentinel2_alphaearth_pixel_pairs_2024_n5000.csv`
+  - `sentinel2_rgb_2024.tif`
 
 After exporting from Earth Engine:
 
@@ -162,6 +169,14 @@ Optional but supported inputs:
 - `DataSources/AlphaEarth_Embeddings_2024.csv`
 - `DataSources/Sentinel1_SAR_2024.csv`
 - `DataSources/sentinel2_context/sentinel2_context_<region>_2024.tif`
+- `DataSources/single_image_pixel_fraction/sentinel2_alphaearth_pixel_pairs_2024_n5000.csv`
+- `DataSources/single_image_pixel_fraction/sentinel2_rgb_2024.tif`
+
+Notes for the single-image experiment:
+
+- the raw Earth Engine CSV and GeoTIFF are local working inputs, not tracked repository artifacts
+- the GeoTIFF is intentionally gitignored because it is too large for normal GitHub pushes
+- the committed source of truth for regenerating them is `gee/export_single_image_alphaearth_pixel_pairs.js`
 
 ## Local Python Environment
 
@@ -251,6 +266,54 @@ MPLCONFIGDIR=/tmp/matplotlib python3 scripts/phase5_data_sufficiency_analysis.py
 MPLCONFIGDIR=/tmp/matplotlib python3 scripts/build_project_reports.py
 ```
 
+### Option C: Reproduce the single-image pixel-fraction experiment
+
+Use this path if you want to reproduce the single-image feasibility study that pairs one Sentinel-2 image with AlphaEarth annual embeddings and measures how performance changes as the fraction of labeled pixels increases.
+
+Preconditions:
+
+- `DataSources/single_image_pixel_fraction/sentinel2_alphaearth_pixel_pairs_2024_n5000.csv` exists
+- `DataSources/single_image_pixel_fraction/sentinel2_rgb_2024.tif` exists
+- your Python environment is installed
+
+Upstream Earth Engine step:
+
+- run `gee/export_single_image_alphaearth_pixel_pairs.js` in the Earth Engine Code Editor
+- download the exported files from Google Drive
+- place them at:
+  - `DataSources/single_image_pixel_fraction/sentinel2_alphaearth_pixel_pairs_2024_n5000.csv`
+  - `DataSources/single_image_pixel_fraction/sentinel2_rgb_2024.tif`
+
+Local execution contract:
+
+- `run_single_image_pixel_fraction_experiment.py` trains embedding-to-pixel regressors over multiple training fractions
+- `visualize_single_image_predictions.py` maps held-out predictions back onto the exported GeoTIFF
+- `build_single_image_pixel_fraction_report.py` creates a PDF summary in both `outputs/` and `reports/`
+
+```bash
+MPLCONFIGDIR=/tmp/matplotlib python3 scripts/run_single_image_pixel_fraction_experiment.py \
+  --csv-path DataSources/single_image_pixel_fraction/sentinel2_alphaearth_pixel_pairs_2024_n5000.csv \
+  --target-col B4 \
+  --fractions 0.01,0.05,0.1,0.25,0.5,1.0
+
+MPLCONFIGDIR=/tmp/matplotlib python3 scripts/visualize_single_image_predictions.py \
+  --tif-path DataSources/single_image_pixel_fraction/sentinel2_rgb_2024.tif \
+  --predictions-path outputs/single_image_pixel_fraction/sentinel2_alphaearth_pixel_pairs_2024_n5000_B4_test_predictions.csv \
+  --fraction 0.1 \
+  --target-col B4
+
+MPLCONFIGDIR=/tmp/matplotlib python3 scripts/build_single_image_pixel_fraction_report.py
+```
+
+Outputs:
+
+- `outputs/single_image_pixel_fraction/sentinel2_alphaearth_pixel_pairs_2024_n5000_B4_fraction_metrics.csv`
+- `outputs/single_image_pixel_fraction/sentinel2_alphaearth_pixel_pairs_2024_n5000_B4_test_predictions.csv`
+- `outputs/single_image_pixel_fraction/sentinel2_alphaearth_pixel_pairs_2024_n5000_B4_test_predictions_fraction_0p1_overlay.png`
+- `outputs/single_image_pixel_fraction/single_image_pixel_fraction_report.pdf`
+- `reports/single_image_pixel_fraction_report.md`
+- `reports/single_image_pixel_fraction_report.pdf`
+
 ## Script Order
 
 1. `scripts/offline_spatial_join_and_sanity_eda.py`
@@ -268,6 +331,12 @@ MPLCONFIGDIR=/tmp/matplotlib python3 scripts/build_project_reports.py
 6. `scripts/build_project_reports.py`
    Regenerates the phase PDFs and the combined summary report.
    This script requires the machine-readable outputs produced by Phases 2 through 5.
+7. `scripts/run_single_image_pixel_fraction_experiment.py`
+   Runs the single-image embedding-to-pixel-value fraction sweep on one Earth Engine CSV export.
+8. `scripts/visualize_single_image_predictions.py`
+   Projects held-out single-image predictions back onto the exported GeoTIFF.
+9. `scripts/build_single_image_pixel_fraction_report.py`
+   Builds the PDF summary report for the single-image experiment.
 
 ## What Each Script Reads and Writes
 
@@ -338,6 +407,40 @@ Writes:
 - `reports/project_summary_report.pdf`
 - mirrored copies under `outputs/full_dataset/`
 
+### `scripts/run_single_image_pixel_fraction_experiment.py`
+
+Reads:
+
+- `DataSources/single_image_pixel_fraction/sentinel2_alphaearth_pixel_pairs_2024_n5000.csv`
+
+Writes:
+
+- `outputs/single_image_pixel_fraction/*_fraction_metrics.csv`
+- `outputs/single_image_pixel_fraction/*_test_predictions.csv`
+- `outputs/single_image_pixel_fraction/*_run_metadata.json`
+
+### `scripts/visualize_single_image_predictions.py`
+
+Reads:
+
+- `DataSources/single_image_pixel_fraction/sentinel2_rgb_2024.tif`
+- prediction CSVs from `outputs/single_image_pixel_fraction/`
+
+Writes:
+
+- `outputs/single_image_pixel_fraction/*_overlay.png`
+
+### `scripts/build_single_image_pixel_fraction_report.py`
+
+Reads:
+
+- single-image metrics, metadata, and overlay artifacts under `outputs/single_image_pixel_fraction/`
+
+Writes:
+
+- `outputs/single_image_pixel_fraction/single_image_pixel_fraction_report.pdf`
+- `reports/single_image_pixel_fraction_report.pdf`
+
 ## Key Outputs
 
 Primary machine-readable outputs are written to `outputs/full_dataset/`.
@@ -352,6 +455,8 @@ Core files include:
 - `data_sufficiency_summary_report.pdf`
 
 Human-facing reports are written to both `reports/` and `outputs/full_dataset/`.
+
+Primary single-image experiment outputs are written to `outputs/single_image_pixel_fraction/`.
 
 ## Recommended Reading Order
 
@@ -371,6 +476,7 @@ If you are new to the repository, start with:
 - `reports/phase4_cross_modal_similarity_summary_report.pdf`
 - `reports/data_sufficiency_summary_report.pdf`
 - `reports/project_summary_report.pdf`
+- `reports/single_image_pixel_fraction_report.pdf`
 
 The current `project_summary_report.pdf` summarizes:
 

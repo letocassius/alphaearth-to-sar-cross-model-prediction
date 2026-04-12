@@ -14,3 +14,5 @@ DataSources/alphaearth_s1_dw_samples_balanced_subset_2024.csv
 DataSources/Untitled
 DataSources/*.tif
 DataSources/sentinel2_context/
+DataSources/single_image_pixel_fraction/*.tif
+DataSources/single_image_pixel_fraction/*.csv
