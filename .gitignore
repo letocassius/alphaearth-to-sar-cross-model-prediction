@@ -21,3 +21,4 @@ DataSources/single_image_sar_reconstruction/*.csv
 
 outputs/single_image_sar_reconstruction_*/
 reports/*_report.pdf
+!reports/single_image_sar_reconstruction_sf_downtown_golden_gate_report.pdf
