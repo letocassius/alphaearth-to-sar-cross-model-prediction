@@ -1,133 +1,137 @@
-# Single-Image SAR-to-AlphaEarth Reconstruction Report
+# Single-Image AlphaEarth-to-SAR Reconstruction Report
 
 ## Objective
 
-This experiment tests whether a compact Sentinel-1 SAR scene can be used to reconstruct the AlphaEarth embedding field over the same area.
+This experiment tests whether colocated AlphaEarth embeddings can reproduce a Sentinel-1 SAR image over one compact scene.
 
-The goal is not to predict one optical band or one embedding band in isolation. The goal is to take SAR-only input and reproduce the full 64-band AlphaEarth embedding image over one complete scene.
+The model direction is now `F(AlphaEarth embedding) = SAR`. Each sampled SAR pixel supplies the target value `Y`, and the colocated 64-dimensional AlphaEarth vector supplies the input features `X`.
 
-The chosen area is a small San Francisco scene covering downtown San Francisco and the Golden Gate Bridge. That AOI is large enough to contain complex urban, water, coastline, and bridge structure, but still small enough to support fast end-to-end reconstruction.
+The chosen area is a small San Francisco scene covering downtown San Francisco and the Golden Gate Bridge. That AOI contains urban structure, water, coastline, and bridge geometry while remaining small enough for full-scene reconstruction.
 
 ## Inputs
 
 - SAR image: `DataSources/single_image_sar_reconstruction/sentinel1_small_vv_vh_sf_downtown_golden_gate_2024.tif`
-- Full truth stack: `DataSources/single_image_sar_reconstruction/sentinel1_alphaearth_small_stack_sf_downtown_golden_gate_2024.tif`
+- Colocated SAR + AlphaEarth stack: `DataSources/single_image_sar_reconstruction/sentinel1_alphaearth_small_stack_sf_downtown_golden_gate_2024.tif`
 - Spatial extent: approximately `668 x 1894` pixels at `10 m`
-- SAR predictors: `S1_VV`, `S1_VH`, `S1_VV_div_VH`
-- Reconstruction targets: `A00` to `A63`
+- Predictors: `A00` to `A63`
+- Reconstruction targets: `S1_VV`, `S1_VH`, `S1_VV_div_VH`
 
-The truth stack contains both the SAR bands and the AlphaEarth embedding bands. That makes it possible to train on sampled pixels and then compare the reproduced image against the true AlphaEarth image everywhere in the AOI.
+The stack already contains the required colocated inputs, so no new data export was needed for this AOI. A new Earth Engine export is only needed if the AOI, year, SAR preprocessing, or AlphaEarth version changes.
 
 ## Modeling Setup
 
-To keep the run fast and stable, the model was trained on a small random sample of valid pixels rather than on the full scene.
+A subset of valid Sentinel-1 pixels was sampled and saved with image-array coordinates so the same pixels can be identified during the full-scene fill step.
 
+- Sampling strategy: `random`
+- Sampling percentage: `0.200%`
 - Sampled rows: `2511`
 - Train rows: `2008`
 - Test rows: `503`
-- Model: `PolynomialFeatures(degree=2) + StandardScaler + Ridge(alpha=10.0)`
+- Model: `MultiOutputRegressor(LGBMRegressor)`
+- SARhat fill rule: `observed SAR retained at training pixels; model predictions used for all other valid pixels`
 
-This model choice is deliberately simple. The point of this report is to measure whether the SAR signal is strong enough to recover the embedding field over an entire image, not to maximize leaderboard performance with a heavy model.
+The sampled pixel coordinate table is:
+
+- `outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/sampled_pixel_locations.csv`
+
+The sampled modeling table with coordinates, split labels, all 64 AlphaEarth features, and SAR targets is:
+
+- `outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/sampled_alphaearth_to_sar_dataset.csv`
 
 ## Reconstruction Procedure
 
 The workflow was:
 
-1. Sample valid pixels from the downtown-plus-Golden-Gate stack.
-2. Fit one multi-output regression model from the three SAR inputs to the 64 AlphaEarth target bands.
-3. Apply the fitted model to every valid pixel in the scene.
-4. Write the reproduced 64-band embedding image as a GeoTIFF.
-5. Compare the reproduced image against the true AlphaEarth image band-by-band and pixel-by-pixel.
+1. Fetch and use the local Sentinel-1 image for the target SAR bands.
+2. Use the colocated full stack to fetch the AlphaEarth embedding at each SAR pixel.
+3. Sample valid SAR pixels and save their row/column locations.
+4. Train `F(X) = Y`, where `X` is the 64-band AlphaEarth embedding and `Y` is the three-band SAR vector.
+5. Iterate over every valid SAR pixel in the scene.
+6. Copy observed SAR values at training pixels and predict all unsampled pixels from their AlphaEarth embeddings.
+7. Save the completed SAR reconstruction as a GeoTIFF and compare it with the actual SAR image.
 
-The full reproduced image is:
+The reconstructed full SAR image is:
 
-- `outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/predicted_tiles/predicted_alphaearth_from_sar_small_stack_sf_downtown_golden_gate_2024.tif`
+- `outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/sar_hat_from_alphaearth_small_stack_sf_downtown_golden_gate_2024.tif`
 
 ## Quantitative Results
 
 ### Held-Out Sample Performance
 
-- Mean R^2 across 64 bands: `0.491`
-- Median R^2 across 64 bands: `0.495`
-- Mean RMSE across 64 bands: `0.0478`
-- Mean Pearson r across 64 bands: `0.686`
-- Best band: `A27` with `R^2 = 0.916`
-- Worst band: `A20` with `R^2 = 0.113`
+- Mean R^2 across SAR bands: `0.924`
+- Mean RMSE across SAR bands: `1.0831`
+- Mean Pearson r across SAR bands: `0.961`
 
-### Full-Image Reconstruction Performance
+| Band | Count | R^2 | RMSE | MAE | Pearson r |
+|---|---:|---:|---:|---:|---:|
+| `S1_VV` | 503 | 0.970 | 1.0462 | 0.6740 | 0.985 |
+| `S1_VH` | 503 | 0.978 | 1.1291 | 0.8437 | 0.989 |
+| `S1_VV_div_VH` | 503 | 0.825 | 1.0739 | 0.8306 | 0.909 |
 
-- Mean R^2 across 64 bands: `0.480`
-- Median R^2 across 64 bands: `0.484`
-- Mean RMSE across 64 bands: `0.0501`
-- Mean Pearson r across 64 bands: `0.671`
-- Best band: `A27` with `R^2 = 0.889`
-- Worst band: `A28` with `R^2 = 0.075`
+### Gap-Fill Performance
+
+These metrics evaluate only pixels not copied from the training dataset.
+
+- Mean R^2 across SAR bands: `0.910`
+- Mean RMSE across SAR bands: `1.1934`
+- Mean Pearson r across SAR bands: `0.953`
+
+| Band | Count | R^2 | RMSE | MAE | Pearson r |
+|---|---:|---:|---:|---:|---:|
+| `S1_VV` | 1263184 | 0.968 | 1.1121 | 0.7106 | 0.984 |
+| `S1_VH` | 1263184 | 0.974 | 1.2567 | 0.9003 | 0.987 |
+| `S1_VV_div_VH` | 1263184 | 0.789 | 1.2114 | 0.8895 | 0.889 |
+
+### Full SARhat Performance
+
+These metrics compare the completed SARhat image against the actual SAR image over all valid pixels.
+
+- Mean R^2 across SAR bands: `0.910`
+- Mean RMSE across SAR bands: `1.1925`
+- Mean Pearson r across SAR bands: `0.953`
+
+| Band | Count | R^2 | RMSE | MAE | Pearson r |
+|---|---:|---:|---:|---:|---:|
+| `S1_VV` | 1265192 | 0.968 | 1.1112 | 0.7094 | 0.984 |
+| `S1_VH` | 1265192 | 0.974 | 1.2557 | 0.8989 | 0.987 |
+| `S1_VV_div_VH` | 1265192 | 0.790 | 1.2104 | 0.8881 | 0.889 |
 
 ## Interpretation
 
-The central result is that the model reproduces the AlphaEarth embedding field moderately well from Sentinel-1 alone, but not uniformly across all embedding dimensions.
+The AlphaEarth embeddings contain strong supervised signal for reconstructing direct Sentinel-1 backscatter in this scene. The held-out and gap-fill metrics are the most important checks because they evaluate pixels not used to fit the model.
 
-The held-out and full-image metrics are close. That matters. It means the reconstruction quality seen on the test sample is not collapsing when the model is applied to the whole image. In other words, the model is not just memorizing sampled pixels. It is learning a scene-level mapping that transfers across the AOI.
+The `S1_VV_div_VH` target remains the hardest band because it is a derived polarization relationship rather than a direct backscatter channel. That pattern is consistent with the broader tabular results in this repository.
 
-At the same time, the reconstruction is incomplete. A mean full-image `R^2` of `0.480` says that SAR-only input can explain a meaningful fraction of AlphaEarth variation, but it does not recover the full optical embedding space. Some bands are strongly reproducible, while others remain weak.
+## Context Figure
 
-That pattern is consistent with the broader project result: SAR and AlphaEarth are related, but they are not interchangeable representations.
-
-## Single All-Band Reproduced Image
-
-The figure below is the most important visualization in this report.
-
-Because the AlphaEarth image has 64 bands, it cannot be shown directly as one normal RGB image. To create one single interpretable image from all bands, the true 64-band AlphaEarth field was projected into 3 dimensions using PCA, and the reproduced embedding was projected using the same PCA basis.
-
-To make that distinction explicit, the following figure compares a real Sentinel-2 natural-color image with the AlphaEarth PCA RGB visualization for the same AOI.
+The following figure shows the Sentinel-2 natural-color scene beside a PCA visualization of the AlphaEarth embedding field. It is included only as spatial context for the features used by the model.
 
 ![](../outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/sentinel2_vs_alphaearth_pca_rgb.png){ width=100% }
 
-The next three figures show the same all-band representation at a much larger scale:
+## Full-Scene SARhat
 
-- the true all-band AlphaEarth image
-- the SAR-reproduced all-band AlphaEarth image
-- the residual intensity, measured as per-pixel RMSE across all 64 bands
+The next three figures show the actual SAR image, the reconstructed SARhat image, and the spatial residual intensity measured as per-pixel RMSE across the three SAR bands.
 
-![](../outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/true_embedding_all_band_large.png){ width=100% }
+![](../outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/true_sar_all_band_large.png){ width=100% }
 
-![](../outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/reproduced_embedding_all_band_large.png){ width=100% }
+![](../outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/sarhat_all_band_large.png){ width=100% }
 
-![](../outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/residual_heatmap_all_band_large.png){ width=100% }
+![](../outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/residual_heatmap_sar_large.png){ width=100% }
 
-This figure is the best single summary of whether the scene was reproduced. The reproduced image preserves broad spatial organization and major structural transitions, while the residual map shows where the SAR-only model fails to match the full embedding.
+The residual map is the main geospatial diagnostic. It shows where the AlphaEarth-to-SAR mapping transfers cleanly and where SAR behavior is driven by geometry or scattering effects that are not fully represented by the embedding.
 
 ## Residual Summary
 
-The following graph summarizes reconstruction quality by embedding band.
+The following graph summarizes reconstruction quality by SAR band.
 
-![](../outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/residual_summary_by_band.png){ width=70% }
+![](../outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/residual_summary_by_sar_band.png){ width=70% }
 
-This plot separates two ideas:
-
-- `R^2` indicates how much bandwise variation is recovered
-- `RMSE` and `MAE` indicate the absolute residual size
-
-Bands with high `R^2` and low residual error are the bands most reproducible from SAR. Bands with low `R^2` and higher residual error are the dimensions where the SAR-to-embedding mapping is weakest.
-
-## Additional Diagnostics
-
-The secondary diagnostics are intentionally reduced here. Their main role is just to confirm that sampled performance and full-image performance stay close.
+The secondary diagnostic compares held-out sample performance, gap-fill performance, and full SARhat performance.
 
 ![](../outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/heldout_vs_full_r2.png){ width=70% }
 
-That comparison supports the same conclusion as the headline metrics: the model generalizes reasonably consistently from the sample to the full scene, but the quality ceiling is band-dependent and clearly limited.
-
 ## Conclusion
 
-For this downtown San Francisco plus Golden Gate Bridge AOI, Sentinel-1 can reproduce a meaningful part of the AlphaEarth embedding image using a small training sample and a lightweight regression model.
+For this downtown San Francisco plus Golden Gate Bridge AOI, AlphaEarth embeddings can reproduce much of the Sentinel-1 SAR image through supervised regression.
 
-That is a useful result. It shows that SAR contains enough information to reconstruct substantial structure in the AlphaEarth space over a full image, not just at isolated sampled pixels.
-
-But the reproduction is only partial. The embedding is not fully recoverable from SAR alone, and the residual structure shows that some AlphaEarth dimensions depend on information outside what this SAR input can provide.
-
-The practical takeaway is:
-
-- full-image SAR-to-AlphaEarth reconstruction is feasible
-- it works well enough to preserve broad structure
-- it is not accurate enough to claim that Sentinel-1 fully reproduces the AlphaEarth representation
+The current local data is sufficient for this corrected single-image workflow. More data would be useful if the goal shifts from a single-scene demonstration to a robust operational model: additional AOIs, seasons, incidence-angle regimes, and urban/coastal geometries would reduce the risk that the fitted mapping is scene-specific.

@@ -3,7 +3,7 @@
 Reproducible code and data for two workflows:
 
 1. a full-dataset study of whether AlphaEarth embeddings predict Sentinel-1 SAR targets across four regions
-2. a single-image reconstruction study of whether Sentinel-1 can reproduce the full 64-band AlphaEarth embedding image over downtown San Francisco plus the Golden Gate Bridge
+2. a single-image reconstruction study of whether AlphaEarth embeddings can reproduce Sentinel-1 SAR over downtown San Francisco plus the Golden Gate Bridge
 
 This README is intentionally narrow. It only documents the workflows, files, and commands that are still kept in the repository.
 
@@ -147,11 +147,11 @@ Generated report files include:
 - `reports/project_summary_report.pdf`
 - `reports/final_report.md`
 
-## Workflow B: Single-Image SAR Reconstruction
+## Workflow B: Single-Image AlphaEarth-to-SAR Reconstruction
 
 This workflow asks a different question from the full-dataset study.
 
-Instead of predicting one scalar SAR target from AlphaEarth embeddings, it tries to reconstruct the entire 64-band AlphaEarth embedding image from Sentinel-1 alone over one compact AOI.
+Instead of predicting one scalar SAR target from a point table, it uses colocated image pixels to reconstruct a full Sentinel-1 SAR image from the 64-band AlphaEarth embedding field over one compact AOI.
 
 ### AOI
 
@@ -177,6 +177,7 @@ MPLCONFIGDIR=/tmp/matplotlib python scripts/run_single_image_sar_reconstruction.
   --full-stack-glob 'sentinel1_alphaearth_small_stack_sf_downtown_golden_gate_2024.tif' \
   --sar-path DataSources/single_image_sar_reconstruction/sentinel1_small_vv_vh_sf_downtown_golden_gate_2024.tif \
   --sample-probability 0.002 \
+  --sampling-strategy random \
   --output-dir outputs/single_image_sar_reconstruction_sf_downtown_golden_gate \
   --report-path reports/single_image_sar_reconstruction_sf_downtown_golden_gate_report.md
 ```
@@ -205,17 +206,20 @@ pandoc single_image_sar_reconstruction_sf_downtown_golden_gate_report.md \
 Core machine-readable outputs:
 
 - `outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/full_image_metrics_by_band.csv`
+- `outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/gap_fill_metrics_by_band.csv`
 - `outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/heldout_metrics_by_band.csv`
+- `outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/sampled_pixel_locations.csv`
+- `outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/sampled_alphaearth_to_sar_dataset.csv`
 - `outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/run_metadata.json`
-- `outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/predicted_tiles/predicted_alphaearth_from_sar_small_stack_sf_downtown_golden_gate_2024.tif`
+- `outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/sar_hat_from_alphaearth_small_stack_sf_downtown_golden_gate_2024.tif`
 
 Core figures:
 
 - `outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/sentinel2_vs_alphaearth_pca_rgb.png`
-- `outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/true_embedding_all_band_large.png`
-- `outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/reproduced_embedding_all_band_large.png`
-- `outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/residual_heatmap_all_band_large.png`
-- `outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/residual_summary_by_band.png`
+- `outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/true_sar_all_band_large.png`
+- `outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/sarhat_all_band_large.png`
+- `outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/residual_heatmap_sar_large.png`
+- `outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/residual_summary_by_sar_band.png`
 
 Report files:
 
