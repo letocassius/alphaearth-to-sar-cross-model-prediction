@@ -8,32 +8,6 @@ The workflow uses Google Earth Engine to export a colocated GeoTIFF containing S
 
 **To what extent can AlphaEarth embeddings reconstruct Sentinel-1 SAR signals at the pixel level, and how does reconstruction performance vary across SAR bands and spatial regions?**
 
-## Project Structure
-
-```text
-alphaearth-sar-reconstruction/
-├── README.md
-├── environment.yml
-├── requirements.txt
-├── run_pipeline.py
-├── earth_engine/
-│   └── export_single_image_sar_reconstruction_stack.js
-├── src/
-│   ├── config.py
-│   ├── data_io.py
-│   ├── sampling.py
-│   ├── modeling.py
-│   ├── reconstruction.py
-│   ├── evaluation.py
-│   └── plotting.py
-├── data/
-│   ├── raw/
-│   └── processed/
-├── models/
-└── reports/
-    └── figures/
-```
-
 ## Workflow Overview
 
 The project has two parts:
