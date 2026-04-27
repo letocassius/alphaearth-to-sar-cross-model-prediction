@@ -8,6 +8,7 @@ __pycache__/
 venv/
 env/
 .env
+.Rhistory
 
 # OS/editor
 .DS_Store
