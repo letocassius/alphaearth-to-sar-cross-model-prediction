@@ -1,6 +1,6 @@
 # AlphaEarth-to-Sentinel-1 SAR Reconstruction
 
-This project tests whether **AlphaEarth satellite embeddings** can reconstruct **Sentinel-1 SAR backscatter** at the pixel level.
+This project reconstructs Sentinel-1 SAR imagery from AlphaEarth embeddings using gradient boosted trees, demonstrating that learned satellite representations encode radar-relevant information.
 
 The workflow uses Google Earth Engine to export a colocated GeoTIFF containing Sentinel-1 SAR bands and 64-dimensional AlphaEarth embeddings. A Python pipeline then samples pixels, trains a LightGBM model, reconstructs a full predicted SAR image (`SARhat`), and evaluates residuals spatially and statistically.
 
@@ -150,6 +150,30 @@ Gap-fill performance was evaluated only on pixels not copied from the training d
 The model reconstructs the raw Sentinel-1 SAR bands very accurately, with R² values above 0.96 for both VV and VH. This suggests that AlphaEarth embeddings encode substantial information related to radar backscatter in this urban coastal scene.
 
 The derived polarization feature, `S1_VV_div_VH`, is harder to reconstruct, with an R² of approximately 0.79. This is expected because derived SAR relationships are more sensitive to nonlinear scattering behavior and noise.
+
+## Example Outputs
+
+### Actual vs Reconstructed SAR
+
+![True SAR](reports/figures/true_sar_all_band_large.png)
+![SARhat](reports/figures/sarhat_all_band_large.png)
+
+### Residual Heatmap
+
+![Residual Heatmap](reports/figures/residual_heatmap_sar_large.png)
+
+### Residual Summary
+
+![Residual Summary](reports/figures/residual_summary_by_sar_band.png)
+
+## Limitations
+
+This experiment is conducted on a single geographic region and time period. Model performance may vary across different environments, seasons, and radar acquisition conditions. Future work would involve training on multiple AOIs to assess generalization.
+
+## Key Takeaway
+
+AlphaEarth embeddings contain sufficient information to accurately reconstruct Sentinel-1 SAR backscatter, particularly for raw polarization channels, suggesting strong cross-modal representation learning in satellite embeddings.
+
 
 ## GitHub Notes
 
