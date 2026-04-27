@@ -1,0 +1,10 @@
+{
+  "project": "AlphaEarth-to-Sentinel-1 SAR reconstruction",
+  "input_expected": "data/raw/sentinel1_alphaearth_small_stack_sf_downtown_golden_gate_2024.tif",
+  "sample_probability": 0.002,
+  "sampling_strategy": "random",
+  "sample_count": 2511,
+  "model": "MultiOutputRegressor(LGBMRegressor)",
+  "main_metric_file": "data/processed/gap_fill_metrics_by_band.csv",
+  "note": "Raw GeoTIFFs, SARhat GeoTIFFs, sampled CSVs, and model files are generated locally and excluded from GitHub."
+}

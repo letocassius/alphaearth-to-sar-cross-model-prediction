@@ -1,0 +1,13 @@
+name: alphaearth-sar
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - rasterio
+  - lightgbm
+  - scikit-learn
+  - scipy
+  - pandas
+  - numpy
+  - matplotlib
+  - joblib

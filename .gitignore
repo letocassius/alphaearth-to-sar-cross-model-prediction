@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Environments
+.venv/
+venv/
+env/
+.env
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
+
+# Large raw data exports from Earth Engine
+/data/raw/*
+!/data/raw/.gitkeep
+
+# Large/generated artifacts
+/data/processed/*.tif
+/data/processed/sampled_*.csv
+/data/processed/heldout_metrics_by_band.csv
+/data/processed/full_image_metrics_by_band.csv
+/models/*
+*.joblib
+*.pkl
+
+# Keep small final outputs that are useful on GitHub
+!/data/processed/.gitkeep
+!/data/processed/gap_fill_metrics_by_band.csv
+!/data/processed/run_summary.json
+!/models/.gitkeep
+!/reports/figures/.gitkeep
+!/reports/figures/*.png
