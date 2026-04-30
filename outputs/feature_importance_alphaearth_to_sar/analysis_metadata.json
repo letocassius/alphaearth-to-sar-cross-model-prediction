@@ -1,0 +1,23 @@
+{
+  "dataset": "outputs/single_image_sar_reconstruction_sf_downtown_golden_gate/sampled_alphaearth_to_sar_dataset.csv",
+  "output_dir": "outputs/feature_importance_alphaearth_to_sar",
+  "sample_count": 2511,
+  "train_count": 2008,
+  "test_count": 503,
+  "n_estimators": 700,
+  "learning_rate": 0.03,
+  "num_leaves": 31,
+  "max_shap_rows": 1000,
+  "top_overall_features": [
+    "A27",
+    "A63",
+    "A25",
+    "A11",
+    "A34",
+    "A17",
+    "A30",
+    "A24",
+    "A44",
+    "A26"
+  ]
+}
