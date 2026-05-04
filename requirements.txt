@@ -1,8 +1,9 @@
 numpy
 pandas
-scipy
-scikit-learn
 matplotlib
-optuna
+scikit-learn
+scipy
 lightgbm
 rasterio
+joblib
+shap
